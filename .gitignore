@@ -1,0 +1,16 @@
+# Ignore build and output directories
+bin/
+obj/
+
+# Ignore Visual Studio files
+.vs/
+.vscode/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Ignore NLog configuration (optional if not needed in repo)
+NLog.config
