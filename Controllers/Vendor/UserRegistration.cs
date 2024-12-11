@@ -7,28 +7,27 @@ using Microsoft.Data.SqlClient;
 using CoreApi_BL_App.Models;
 using System.Data;
 using Microsoft.Extensions.Configuration;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using Azure.Core;
+using System.Collections.Generic;
+
 namespace CoreApi_BL_App.Controllers.Vendor
 {
     [Route("api/[controller]")]
     [ApiController]
     public class UserRegistration : ControllerBase
     {
-        private readonly IConfiguration _configuration;
+        private readonly DatabaseManager _databaseManager;
 
-        public UserRegistration(IConfiguration configuration)
+        public UserRegistration(DatabaseManager databaseManager)
         {
-            _configuration = configuration;
+            _databaseManager = databaseManager;
         }
-        // Post: Insert vendor data into the database
+
         [HttpPost]
         public async Task<IActionResult> CreateConsumer([FromBody] consumerrequest req)
         {
             if (req == null)
                 return BadRequest(new ApiResponse<object>(false, "Consumer data is null."));
-
-            var connectionString = _configuration.GetConnectionString("defaultConnectionbeta");
 
             try
             {
@@ -274,325 +273,92 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.Selfie_image = value;
                                 break;
                             default:
-                                // Log or handle unknown keys if necessary
                                 break;
                         }
                     }
                 }
 
-                // Step 2: Get the new User ID from the database
-                string UserId;
-                using (var connection = new SqlConnection(connectionString))
+                // Ensure the mobile number has the correct prefix if necessary
+                if (consumer.Mobile.Length == 10)
+                    consumer.Mobile = "91" + consumer.Mobile;
+
+                // Check if the user already exists based on mobile number
+                string Querystring = $"select * from M_Consumer where MobileNo='{consumer.Mobile}' and IsDelete=0";
+                var dtconsu = await _databaseManager.ExecuteDataTableAsync(Querystring);
+
+                if (dtconsu.Rows.Count == 0)
                 {
-                    await connection.OpenAsync();
-
-                    // Update the PrStart for 'Consumer' and get the new ID
-                    string updateQuery = "UPDATE Code_Gen SET PrStart = cast(PrStart as bigint) + 1 WHERE Prfor = 'Consumer'";
-                    using (var command = new SqlCommand(updateQuery, connection))
+                    // Insert a new consumer
+                    Dictionary<string, object> inputParameters = new Dictionary<string, object>
                     {
-                        await command.ExecuteNonQueryAsync();
-                    }
+                        { "@MobileNo", consumer.Mobile },
+                        { "@Password", "12345" }, // You may need to generate a random password or send a default one
+                        { "@Entry_Date", DBNull.Value },
+                        { "@IsActive", true },
+                        { "@IsDelete", false }
+                    };
+                    List<string> outputParameters = new List<string> { "@User_ID", "@M_Consumerid" };
+                    Dictionary<string, object> result = _databaseManager.ExecuteStoredProcedure("USP_Consumerreg", inputParameters, outputParameters);
+                    string userId = result["@User_ID"].ToString();
+                    string consumerId = result["@M_Consumerid"].ToString();
 
-                    string selectQuery = "SELECT PrPrefix + CONVERT(varchar, (PrStart - 1)) FROM Code_Gen WHERE Prfor = 'Consumer'";
-                    using (var command = new SqlCommand(selectQuery, connection))
+                    Dictionary<string, object> inputParametersupdate = new Dictionary<string, object>
                     {
-                        UserId = (string)await command.ExecuteScalarAsync();
-                    }
+                        { "@Entry_Date",Convert.ToDateTime(Convert.ToDateTime(System.DateTime.Now).ToString("yyyy/MM/dd hh:mm:ss tt"))},
+                        {"@User_ID",consumer.User_ID },
+                        {"@ConsumerName",consumer.ConsumerName },
+                        {"@Email",consumer.Email },
+                        {"@MobileNo",consumer.Mobile },
+                        {"@City",consumer.City },
+                        {"@PinCode",consumer.PinCode },
+                        {"@Password",consumer.Password },
+                        {"@IsActive",consumer.IsActive },
+                        {"@IsDelete",consumer.IsDelete },
+                        {"@DML","U" },
+                        {"@Address",consumer.Address },
+                        {"@Code1",0 },
+                        {"@Code2",0 },
+                        {"@employeeID",consumer.employeeID },
+                        {"@distributorID",consumer.distributorID },
+                        {"@aadharNumber",consumer.aadharNumber },
+                        {"@Vrkabel_User_Type",consumer.Vrkabel_User_Type },
+                        {"@village",consumer.village },
+                        {"@district",consumer.district },
+                        {"@state",consumer.state },
+                        {"@Comp_id",consumer.Comp_id },
+                        {"@country",consumer.country },
+                        {"@aadharFile",consumer.aadharFile },
+                        {"@uploadedby",consumer.aadharUploadedBy },
+                        {"@uploadedsource",consumer.Aadhar_source },
+                        {"@aadharFile_back",consumer.aadharback },
+                        {"@SellerName",consumer.SellerName },
+                        {"@gst_number",consumer.gst_number },
+                        {"@shop_file",consumer.shop_file },
+                        {"@shop_name",consumer.shop_name },
+                        {"@Shop_address",consumer.Shop_address },
+                        {"@FirmName",consumer.FirmName }     
+                    };
+
+                    var resultdata = await _databaseManager.ExecuteStoredProcedureDataSetAsync("PROC_InsUpdUserDetails", inputParametersupdate);
+
+                  
+
+                    return Ok(new ApiResponse<object>(true, "Consumer registered successfully.", new
+                    {
+                        UserId = userId,
+                        M_Consumerid = consumerId,
+                        MobileNo = consumer.Mobile,
+                        ConsumerName = consumer.ConsumerName
+                    }));
                 }
-
-                // Step 3: Insert new consumer data into the database
-                using (var connection = new SqlConnection(connectionString))
+                else
                 {
-                    await connection.OpenAsync();
-
-                    string insertQuery = @"
-                INSERT INTO M_Consumer 
-                (
-                    User_ID, ConsumerName, Email, MobileNo, City, PinCode, Password, IsActive, IsDelete, 
-                    Address, Per_Address, ReferralCode, IsSharedReferralCode, employeeID, distributorID, aadharNumber, aadharFile, 
-                    aadharback, aadharUploadedBy, Aadhar_source, village, district, state, country, Role_Id, 
-                    Created_by, Comp_id, SellerName, token, MStarId, Inox_User_Type, Vrkabel_User_Type, cin_number, ref_cin_number, 
-                    designation, dob, gender, sur_name, communication_status, business_status, house_number, land_mark, owner_number, 
-                    shop_name, pancard_number, gst_number, pan_card_file, shop_file, Other_Role, profile_image, VRKbl_KYC_status, 
-                    Additional, remark, panekycStatus, aadharkycStatus, bankekycStatus, PanHolderName, AadharHolderName, Shop_address, 
-                    FirmName, Apptoken, AppVersion, Agegroup, Pancard_Status, BrandId, Aadhar_Status, Passbook_Status, Ekyc_status, 
-                    Location, User_Type, AddressProof, UpiidImage, UPIKYCSTATUS, teslapayoutmode, Selfie_image
-                )
-                VALUES 
-                (
-                    @User_ID, @ConsumerName, @Email, @MobileNo, @City, @PinCode, @Password, @IsActive, @IsDelete, 
-                    @Address, @Per_Address, @ReferralCode, @IsSharedReferralCode, @employeeID, @distributorID, @aadharNumber, 
-                    @aadharFile, @aadharback, @aadharUploadedBy, @Aadhar_source, @village, @district, @state, 
-                    @country, @Role_Id, @Created_by, @Comp_id, @SellerName, @token, @MStarId, @Inox_User_Type, @Vrkabel_User_Type, 
-                    @cin_number, @ref_cin_number, @designation, @dob, @gender, @sur_name, @communication_status, @business_status, 
-                    @house_number, @land_mark, @owner_number, @shop_name, @pancard_number, @gst_number, @pan_card_file, @shop_file, 
-                    @Other_Role, @profile_image, @VRKbl_KYC_status, @Additional, @remark, @panekycStatus, @aadharkycStatus, 
-                    @bankekycStatus, @PanHolderName, @AadharHolderName, @Shop_address, @FirmName, @Apptoken, @AppVersion, @Agegroup, 
-                    @Pancard_Status, @BrandId, @Aadhar_Status, @Passbook_Status, @Ekyc_status, @Location, @User_Type, @AddressProof, 
-                    @UpiidImage, @UPIKYCSTATUS, @teslapayoutmode, @Selfie_image
-                );";
-
-                    using (var command = new SqlCommand(insertQuery, connection))
-                    {
-                        // Add parameters dynamically for each property
-                        command.Parameters.Add(CreateSqlParameter("@User_ID", UserId));
-                        command.Parameters.Add(CreateSqlParameter("@ConsumerName", consumer.ConsumerName));
-                        command.Parameters.Add(CreateSqlParameter("@Email", consumer.Email));
-                        command.Parameters.Add(CreateSqlParameter("@MobileNo", consumer.Mobile));
-                        command.Parameters.Add(CreateSqlParameter("@City", consumer.City));
-                        command.Parameters.Add(CreateSqlParameter("@PinCode", consumer.PinCode));
-                        command.Parameters.Add(CreateSqlParameter("@Password", consumer.Password ?? "defaultpassword"));
-                        command.Parameters.Add(CreateSqlParameter("@IsActive", consumer.IsActive));
-                        command.Parameters.Add(CreateSqlParameter("@IsDelete", consumer.IsDelete));
-                        command.Parameters.Add(CreateSqlParameter("@Address", consumer.Address));
-                        command.Parameters.Add(CreateSqlParameter("@Per_Address", consumer.Per_Address));
-                        command.Parameters.Add(CreateSqlParameter("@ReferralCode", consumer.ReferralCode));
-                        command.Parameters.Add(CreateSqlParameter("@IsSharedReferralCode", consumer.IsSharedReferralCode));
-                        command.Parameters.Add(CreateSqlParameter("@employeeID", consumer.employeeID));
-                        command.Parameters.Add(CreateSqlParameter("@distributorID", consumer.distributorID));
-                        command.Parameters.Add(CreateSqlParameter("@aadharNumber", consumer.aadharNumber));
-                        command.Parameters.Add(CreateSqlParameter("@aadharFile", consumer.aadharFile));
-                        command.Parameters.Add(CreateSqlParameter("@aadharback", consumer.aadharback));
-                        command.Parameters.Add(CreateSqlParameter("@aadharUploadedBy", consumer.aadharUploadedBy));
-                        command.Parameters.Add(CreateSqlParameter("@Aadhar_source", consumer.Aadhar_source));
-                        command.Parameters.Add(CreateSqlParameter("@village", consumer.village));
-                        command.Parameters.Add(CreateSqlParameter("@district", consumer.district));
-                        command.Parameters.Add(CreateSqlParameter("@state", consumer.state));
-                        command.Parameters.Add(CreateSqlParameter("@country", consumer.country));
-                        command.Parameters.Add(CreateSqlParameter("@Role_Id", consumer.Role_Id));
-                        command.Parameters.Add(CreateSqlParameter("@Created_by", consumer.Created_by));
-                        command.Parameters.Add(CreateSqlParameter("@Comp_id", consumer.Comp_id));
-                        command.Parameters.Add(CreateSqlParameter("@SellerName", consumer.SellerName));
-                        command.Parameters.Add(CreateSqlParameter("@token", consumer.token));
-                        command.Parameters.Add(CreateSqlParameter("@MStarId", consumer.MStarId));
-                        command.Parameters.Add(CreateSqlParameter("@Inox_User_Type", consumer.Inox_User_Type));
-                        command.Parameters.Add(CreateSqlParameter("@Vrkabel_User_Type", consumer.Vrkabel_User_Type));
-                        command.Parameters.Add(CreateSqlParameter("@cin_number", consumer.cin_number));
-                        command.Parameters.Add(CreateSqlParameter("@ref_cin_number", consumer.ref_cin_number));
-                        command.Parameters.Add(CreateSqlParameter("@designation", consumer.designation));
-                        command.Parameters.Add(CreateSqlParameter("@dob", consumer.dob));
-                        command.Parameters.Add(CreateSqlParameter("@gender", consumer.gender));
-                        command.Parameters.Add(CreateSqlParameter("@sur_name", consumer.sur_name));
-                        command.Parameters.Add(CreateSqlParameter("@communication_status", consumer.communication_status));
-                        command.Parameters.Add(CreateSqlParameter("@business_status", consumer.business_status));
-                        command.Parameters.Add(CreateSqlParameter("@house_number", consumer.house_number));
-                        command.Parameters.Add(CreateSqlParameter("@land_mark", consumer.land_mark));
-                        command.Parameters.Add(CreateSqlParameter("@owner_number", consumer.owner_number));
-                        command.Parameters.Add(CreateSqlParameter("@shop_name", consumer.shop_name));
-                        command.Parameters.Add(CreateSqlParameter("@pancard_number", consumer.pancard_number));
-                        command.Parameters.Add(CreateSqlParameter("@gst_number", consumer.gst_number));
-                        command.Parameters.Add(CreateSqlParameter("@pan_card_file", consumer.pan_card_file));
-                        command.Parameters.Add(CreateSqlParameter("@shop_file", consumer.shop_file));
-                        command.Parameters.Add(CreateSqlParameter("@Other_Role", consumer.Other_Role));
-                        command.Parameters.Add(CreateSqlParameter("@profile_image", consumer.profile_image));
-                        command.Parameters.Add(CreateSqlParameter("@VRKbl_KYC_status", consumer.VRKbl_KYC_status));
-                        command.Parameters.Add(CreateSqlParameter("@Additional", consumer.Additional));
-                        command.Parameters.Add(CreateSqlParameter("@remark", consumer.remark));
-                        command.Parameters.Add(CreateSqlParameter("@panekycStatus", consumer.panekycStatus));
-                        command.Parameters.Add(CreateSqlParameter("@aadharkycStatus", consumer.aadharkycStatus));
-                        command.Parameters.Add(CreateSqlParameter("@bankekycStatus", consumer.bankekycStatus));
-                        command.Parameters.Add(CreateSqlParameter("@PanHolderName", consumer.PanHolderName));
-                        command.Parameters.Add(CreateSqlParameter("@AadharHolderName", consumer.AadharHolderName));
-                        command.Parameters.Add(CreateSqlParameter("@Shop_address", consumer.Shop_address));
-                        command.Parameters.Add(CreateSqlParameter("@FirmName", consumer.FirmName));
-                        command.Parameters.Add(CreateSqlParameter("@Apptoken", consumer.Apptoken));
-                        command.Parameters.Add(CreateSqlParameter("@AppVersion", consumer.AppVersion));
-                        command.Parameters.Add(CreateSqlParameter("@Agegroup", consumer.Agegroup));
-                        command.Parameters.Add(CreateSqlParameter("@Pancard_Status", consumer.Pancard_Status));
-                        command.Parameters.Add(CreateSqlParameter("@BrandId", consumer.BrandId));
-                        command.Parameters.Add(CreateSqlParameter("@Aadhar_Status", consumer.Aadhar_Status));
-                        command.Parameters.Add(CreateSqlParameter("@Passbook_Status", consumer.Passbook_Status));
-                        command.Parameters.Add(CreateSqlParameter("@Ekyc_status", consumer.Ekyc_status));
-                        command.Parameters.Add(CreateSqlParameter("@Location", consumer.Location));
-                        command.Parameters.Add(CreateSqlParameter("@User_Type", consumer.User_Type));
-                        command.Parameters.Add(CreateSqlParameter("@AddressProof", consumer.AddressProof));
-                        command.Parameters.Add(CreateSqlParameter("@UpiidImage", consumer.UpiidImage));
-                        command.Parameters.Add(CreateSqlParameter("@UPIKYCSTATUS", consumer.UPIKYCSTATUS));
-                        command.Parameters.Add(CreateSqlParameter("@teslapayoutmode", consumer.teslapayoutmode));
-                        command.Parameters.Add(CreateSqlParameter("@Selfie_image", consumer.Selfie_image));
-
-                        await command.ExecuteNonQueryAsync();
-                    }
-                }
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    string selectQuery1 = $"SELECT M_Consumerid, MobileNo, ConsumerName FROM M_Consumer WHERE User_ID = @UserId";
-                    await connection.OpenAsync();
-
-                    using (var command = new SqlCommand(selectQuery1, connection))
-                    {
-                        command.Parameters.AddWithValue("@UserId", UserId);
-
-                        using (var reader = await command.ExecuteReaderAsync())
-                        {
-                            if (await reader.ReadAsync())
-                            {
-                                var response = new
-                                {
-                                    UserId = UserId,
-                                    M_Consumerid = reader["M_Consumerid"],
-                                    MobileNo = reader["MobileNo"]
-                                };
-
-                                return Ok(new ApiResponse<object>(true, "Consumer created successfully", response));
-                            }
-                            else
-                            {
-                                return NotFound(new ApiResponse<object>(false, "No consumer found"));
-                            }
-                        }
-                    }
+                    return Conflict(new ApiResponse<object>(false, "Consumer already exists."));
                 }
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new ApiResponse<object>(false, $"Internal Server Error: {ex.Message}"));
-            }
-        }
-
-        private SqlParameter CreateSqlParameter(string paramName, object value)
-        {
-            if (value == null)
-                return new SqlParameter(paramName, DBNull.Value);
-
-            // Explicitly check if value is numeric
-            if (value is int)
-                return new SqlParameter(paramName, SqlDbType.Int) { Value = value };
-            else if (value is decimal)
-                return new SqlParameter(paramName, SqlDbType.Decimal) { Value = value };
-            else if (value is long)
-                return new SqlParameter(paramName, SqlDbType.BigInt) { Value = value };
-            else if (value is double)
-                return new SqlParameter(paramName, SqlDbType.Float) { Value = value };
-            else if (value is string)
-                return new SqlParameter(paramName, SqlDbType.NVarChar) { Value = value };
-            else if (value is DateTime)
-                return new SqlParameter(paramName, SqlDbType.DateTime) { Value = value };
-
-            return new SqlParameter(paramName, value);
-        }
-
-
-
-
-
-
-        [HttpGet("Registration/{M_Consumerid}")]
-        public async Task<IActionResult> GetConsumer(int consumerId)
-        {
-            // SQL connection string
-            var connectionString = _configuration.GetConnectionString("defaultConnectionbeta");
-
-            using (var connection = new SqlConnection(connectionString))
-            {
-                await connection.OpenAsync();
-
-                // SQL query to fetch consumer by Consumerid
-                var query = "SELECT * FROM Consumers WHERE M_Consumerid = @M_Consumerid";
-
-                using (var command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@M_Consumerid", consumerId);
-
-                    try
-                    {
-                        var reader = await command.ExecuteReaderAsync();
-                        if (await reader.ReadAsync())
-                        {
-                            var consumer = new Consumer
-                            {
-                                M_Consumerid = reader.GetInt32(reader.GetOrdinal("M_Consumerid")),
-                                User_ID = reader.GetString(reader.GetOrdinal("User_ID")),
-                                ConsumerName = reader.GetString(reader.GetOrdinal("ConsumerName")),
-                                Email = reader.GetString(reader.GetOrdinal("Email")),
-                                Mobile = reader.GetString(reader.GetOrdinal("MobileNo")),
-                                City = reader.GetString(reader.GetOrdinal("City")),
-                                PinCode = reader.GetString(reader.GetOrdinal("PinCode")),
-                                Password = reader.GetString(reader.GetOrdinal("Password")),
-                                Entry_Date = reader.GetDateTime(reader.GetOrdinal("Entry_Date")),
-                                IsActive = reader.GetInt32(reader.GetOrdinal("IsActive")),
-                                IsDelete = reader.GetInt32(reader.GetOrdinal("IsDelete")),
-                                Address = reader.GetString(reader.GetOrdinal("Address")),
-                                Per_Address = reader.GetString(reader.GetOrdinal("Per_Address")),
-                                ReferralCode = reader.GetInt32(reader.GetOrdinal("ReferralCode")),
-                                IsSharedReferralCode = reader.GetBoolean(reader.GetOrdinal("IsSharedReferralCode")),
-                                employeeID = reader.GetString(reader.GetOrdinal("employeeID")),
-                                distributorID = reader.GetString(reader.GetOrdinal("distributorID")),
-                                aadharNumber = reader.GetString(reader.GetOrdinal("aadharNumber")),
-                                aadharFile = reader.GetString(reader.GetOrdinal("aadharFile")),
-                                aadharback = reader.GetString(reader.GetOrdinal("aadharback")),
-                                aadharUploadedate = reader.GetDateTime(reader.GetOrdinal("aadharUploadedate")),
-                                aadharUploadedBy = reader.GetString(reader.GetOrdinal("aadharUploadedBy")),
-                                Aadhar_source = reader.GetString(reader.GetOrdinal("Aadhar_source")),
-                                village = reader.GetString(reader.GetOrdinal("village")),
-                                district = reader.GetString(reader.GetOrdinal("district")),
-                                state = reader.GetString(reader.GetOrdinal("state")),
-                                country = reader.GetString(reader.GetOrdinal("country")),
-                                Role_Id = reader.GetInt32(reader.GetOrdinal("Role_Id")),
-                                Created_by = reader.GetInt32(reader.GetOrdinal("Created_by")),
-                                Comp_id = reader.GetString(reader.GetOrdinal("Comp_id")),
-                                SellerName = reader.GetString(reader.GetOrdinal("SellerName")),
-                                token = reader.GetString(reader.GetOrdinal("token")),
-                                MStarId = reader.GetInt32(reader.GetOrdinal("MStarId")),
-                                Inox_User_Type = reader.GetString(reader.GetOrdinal("Inox_User_Type")),
-                                Vrkabel_User_Type = reader.GetInt32(reader.GetOrdinal("Vrkabel_User_Type")),
-                                cin_number = reader.GetString(reader.GetOrdinal("cin_number")),
-                                ref_cin_number = reader.GetString(reader.GetOrdinal("ref_cin_number")),
-                                designation = reader.GetString(reader.GetOrdinal("designation")),
-                                dob = reader.GetString(reader.GetOrdinal("dob")),
-                                gender = reader.GetString(reader.GetOrdinal("gender")),
-                                sur_name = reader.GetString(reader.GetOrdinal("sur_name")),
-                                communication_status = reader.GetInt32(reader.GetOrdinal("communication_status")),
-                                business_status = reader.GetInt32(reader.GetOrdinal("business_status")),
-                                house_number = reader.GetString(reader.GetOrdinal("house_number")),
-                                land_mark = reader.GetString(reader.GetOrdinal("land_mark")),
-                                owner_number = reader.GetString(reader.GetOrdinal("owner_number")),
-                                shop_name = reader.GetString(reader.GetOrdinal("shop_name")),
-                                pancard_number = reader.GetString(reader.GetOrdinal("pancard_number")),
-                                gst_number = reader.GetString(reader.GetOrdinal("gst_number")),
-                                pan_card_file = reader.GetString(reader.GetOrdinal("pan_card_file")),
-                                shop_file = reader.GetString(reader.GetOrdinal("shop_file")),
-                                Other_Role = reader.GetString(reader.GetOrdinal("Other_Role")),
-                                profile_image = reader.GetString(reader.GetOrdinal("profile_image")),
-                                VRKbl_KYC_status = reader.GetInt32(reader.GetOrdinal("VRKbl_KYC_status")),
-                                Additional = reader.GetString(reader.GetOrdinal("Additional")),
-                                remark = reader.GetString(reader.GetOrdinal("remark")),
-                                panekycStatus = reader.GetString(reader.GetOrdinal("panekycStatus")),
-                                aadharkycStatus = reader.GetString(reader.GetOrdinal("aadharkycStatus")),
-                                bankekycStatus = reader.GetString(reader.GetOrdinal("bankekycStatus")),
-                                PanHolderName = reader.GetString(reader.GetOrdinal("PanHolderName")),
-                                AadharHolderName = reader.GetString(reader.GetOrdinal("AadharHolderName")),
-                                Shop_address = reader.GetString(reader.GetOrdinal("Shop_address")),
-                                FirmName = reader.GetString(reader.GetOrdinal("FirmName")),
-                                Apptoken = reader.GetString(reader.GetOrdinal("Apptoken")),
-                                AppVersion = reader.GetString(reader.GetOrdinal("AppVersion")),
-                                Agegroup = reader.GetString(reader.GetOrdinal("Agegroup")),
-                                Pancard_Status = reader.GetString(reader.GetOrdinal("Pancard_Status")),
-                                BrandId = reader.GetInt32(reader.GetOrdinal("BrandId")),
-                                Aadhar_Status = reader.GetString(reader.GetOrdinal("Aadhar_Status")),
-                                Passbook_Status = reader.GetString(reader.GetOrdinal("Passbook_Status")),
-                                Ekyc_status = reader.GetString(reader.GetOrdinal("Ekyc_status")),
-                                Location = reader.GetString(reader.GetOrdinal("Location")),
-                                User_Type = reader.GetInt32(reader.GetOrdinal("User_Type")),
-                                AddressProof = reader.GetString(reader.GetOrdinal("AddressProof")),
-                                UpiidImage = reader.GetString(reader.GetOrdinal("UpiidImage")),
-                                UPIKYCSTATUS = reader.GetInt32(reader.GetOrdinal("UPIKYCSTATUS")),
-                                teslapayoutmode = reader.GetString(reader.GetOrdinal("teslapayoutmode")),
-                                Selfie_image = reader.GetString(reader.GetOrdinal("Selfie_image"))
-                            };
-
-                            return Ok(new ApiResponse<Consumer>(true, "Consumer data fetched successfully", consumer));
-                        }
-                        else
-                        {
-                            return NotFound(new ApiResponse<object>(false, "Consumer not found"));
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        return StatusCode(500, new ApiResponse<object>(false, $"Error: {ex.Message}"));
-                    }
-                }
             }
         }
     }
