@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Reflection;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using CoreApi_BL_App.Services;
+using Azure;
 
 namespace CoreApi_BL_App.Controllers
 {
@@ -41,6 +42,8 @@ namespace CoreApi_BL_App.Controllers
                 if ((mobile == "2233445566" || mobile == "8800001122" || mobile == "2000000022" || mobile == "2366998877") && otpCode.Trim() == "4321")
                 {
                     // Query to fetch consumer details
+                    _databaseManager.ExecuteNonQueryAsync($"update COMPANYPRODUCT set status = 1 where status = '0' and right(MobileNumber,10) = '{mobile}'");
+
                     string query = $"SELECT TOP 1 * FROM M_Consumer WHERE RIGHT([MobileNo], 10) = '{mobile}' AND IsDelete = 0";
 
                     DataTable mconData = await _databaseManager.ExecuteDataTableAsync(query);
@@ -48,7 +51,7 @@ namespace CoreApi_BL_App.Controllers
                     {
                         DataRow row = mconData.Rows[0];
                         // Map the retrieved data to User_Details
-                        var userDetails = new User_Details
+                        var response = new
                         {
                             M_consumerid = Convert.ToInt32(row["M_Consumerid"]),
                             User_ID = row["User_ID"]?.ToString(),
@@ -60,13 +63,12 @@ namespace CoreApi_BL_App.Controllers
 
                         Dictionary<string, object> inputParameters = new Dictionary<string, object>
                                       {
-                                          { "@User_ID", userDetails.M_consumerid }
+                                          { "@User_ID", response.M_consumerid }
                                       };
                         List<string> outputParameters = new List<string> { "@User_ID", "@M_Consumerid" };
                         DataTable profiledata = await _databaseManager.ExecuteStoredProcedureDataTableAsync("PROC_appGetUserDetails", inputParameters);
-                        return Ok(new ApiResponse<User_Details>(true, "OTP validated successfully.!", userDetails));
-                        _databaseManager.ExecuteNonQueryAsync($"update COMPANYPRODUCT set status = 1 where status = '0' and right(MobileNumber,10) = '{mobile}'");
-
+                        return Ok(new ApiResponse<object>(true, "OTP validated successfully.!", response));
+                        
                     }
                 }
 
@@ -89,7 +91,7 @@ namespace CoreApi_BL_App.Controllers
                         {
                             DataRow row = mconData.Rows[0];
                             // Map the retrieved data to User_Details
-                             userDetails = new User_Details
+                            var response = new
                             {
                                 M_consumerid = Convert.ToInt32(row["M_Consumerid"]),
                                 User_ID = row["User_ID"]?.ToString(),
@@ -101,15 +103,34 @@ namespace CoreApi_BL_App.Controllers
 
                             Dictionary<string, object> inputParameters = new Dictionary<string, object>
                                       {
-                                          { "@User_ID", userDetails.M_consumerid }
+                                          { "@User_ID", response.M_consumerid }
                                       };
                             List<string> outputParameters = new List<string> { "@User_ID", "@M_Consumerid" };
                             DataTable profiledata = await _databaseManager.ExecuteStoredProcedureDataTableAsync("PROC_appGetUserDetails", inputParameters);
-                            return Ok(new ApiResponse<User_Details>(true, "OTP validated successfully.!", userDetails));
+                            return Ok(new ApiResponse<object>(true, "OTP validated successfully.", response));
+                            //return Ok(new ApiResponse<User_Details>(true, "OTP validated successfully.!", userDetails));
                         }
-                        _databaseManager.ExecuteNonQueryAsync($"update COMPANYPRODUCT set status = 1 where status = '0' and right(MobileNumber,10) = '{mobile}'");
+                        else
+                        {
+                            var response = new
+                            {
+                                M_consumerid = "",
+                                User_ID = "",
+                                ConsumerName = "",
+                                Email = "",
+                                MobileNo ="",
+                                City = ""
+                            };
 
-                        return Ok(new ApiResponse<User_Details>(true, "OTP validated successfully.!", userDetails));
+                            // Map the retrieved data to User_Details
+                      
+
+                          
+                          return Ok(new ApiResponse<object>(false, "User is not exists!.", response));
+
+                        }
+                        
+                        //return Ok(new ApiResponse<User_Details>(true, "OTP validated successfully.!", userDetails));
                         }
                 }
                 else
@@ -145,14 +166,5 @@ namespace CoreApi_BL_App.Controllers
         }
     }
 
-    public class User_Details
-    {
-        public int M_consumerid { get; set; }
-        public string User_ID { get; set; }
-        public string ConsumerName { get; set; }
-        public string Email { get; set; }
-        public string MobileNo { get; set; }
-        public string City { get; set; }
-        public string profileImg { get; set; }
-    }
+
 }

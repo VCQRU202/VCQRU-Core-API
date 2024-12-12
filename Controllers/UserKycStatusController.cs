@@ -43,7 +43,7 @@ namespace CoreApi_BL_App.Controllers
                     return BadRequest(new ApiResponse<object>(false, "Invalid consumer ID."));
 
                 // SQL query
-                string query = $"SELECT TOP 1 [M_Consumerid], panekycStatus, aadharkycStatus, bankekycStatus, VRKbl_KYC_status FROM M_Consumer WHERE M_Consumerid = {M_Consumerid} ORDER BY [M_Consumerid] DESC";
+                string query = $"SELECT TOP 1 [M_Consumerid],case when panekycStatus ='Online' Then '1' else '0' end panekycStatus,case when aadharkycStatus ='Online' Then '1' else '0' end aadharkycStatus,case when bankekycStatus ='Online' Then '1' else '0' end bankekycStatus,case when VRKbl_KYC_status =1 Then 'Approved' when VRKbl_KYC_status =2 Then 'Rejected'  else 'Pending' end VRKbl_KYC_status FROM M_Consumer WHERE M_Consumerid = {M_Consumerid} ORDER BY [M_Consumerid] DESC";
 
                 //var parameters = new { M_Consumerid };
                 var dt = await _databaseManager.ExecuteDataTableAsync(query);
