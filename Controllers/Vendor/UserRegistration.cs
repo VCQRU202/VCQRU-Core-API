@@ -473,10 +473,6 @@ namespace CoreApi_BL_App.Controllers.Vendor
         }
 
 
-
-
-
-
         [HttpGet("Registration/{M_Consumerid}")]
         public async Task<IActionResult> GetConsumer(int consumerId)
         {
