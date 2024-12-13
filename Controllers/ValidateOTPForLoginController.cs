@@ -36,10 +36,10 @@ namespace CoreApi_BL_App.Controllers
                 }
 
                 string mobile = req.Mobile.Substring(req.Mobile.Length - 10);
-                string otpCode = req.otpCode;
+                int otpCode = req.otpCode;
 
                 // Check for predefined test numbers
-                if ((mobile == "2233445566" || mobile == "8800001122" || mobile == "2000000022" || mobile == "2366998877") && otpCode.Trim() == "4321")
+                if ((mobile == "2233445566" || mobile == "8800001122" || mobile == "2000000022" || mobile == "2366998877") && otpCode == 4321)
                 {
                     // Query to fetch consumer details
                     _databaseManager.ExecuteNonQueryAsync($"update COMPANYPRODUCT set status = 1 where status = '0' and right(MobileNumber,10) = '{mobile}'");
@@ -78,7 +78,7 @@ namespace CoreApi_BL_App.Controllers
                 if (dataOtp.Rows.Count > 0)
                 {
                     string otp = dataOtp.Rows[0]["otp"].ToString();
-                    if (otp == otpCode)
+                    if (otp == otpCode.ToString())
                     {
                         _databaseManager.ExecuteNonQueryAsync($"update COMPANYPRODUCT set status = 1 where status = '0' and right(MobileNumber,10) = '{mobile}'");
 
@@ -148,23 +148,23 @@ namespace CoreApi_BL_App.Controllers
 
     public class ValidateOTPForLoginClass
     {
-        public string otpCode { get; set; }
+        public int otpCode { get; set; }
         public string Mobile { get; set; }
     }
 
-    public class ApiResponse<T>
-    {
-        public bool Success { get; set; }
-        public string Message { get; set; }
-        public T Data { get; set; }
+    //public class ApiResponse<T>
+    //{
+    //    public bool Success { get; set; }
+    //    public string Message { get; set; }
+    //    public T Data { get; set; }
 
-        public ApiResponse(bool success, string message, T data = default)
-        {
-            Success = success;
-            Message = message;
-            Data = data;
-        }
-    }
+    //    public ApiResponse(bool success, string message, T data = default)
+    //    {
+    //        Success = success;
+    //        Message = message;
+    //        Data = data;
+    //    }
+    //}
 
 
 }
