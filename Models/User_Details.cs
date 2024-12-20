@@ -1,4 +1,9 @@
-﻿namespace CoreApi_BL_App.Models
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace CoreApi_BL_App.Models
 {
     public class User_Details
     {
@@ -42,7 +47,7 @@
         public string Shopname { get; set; }
         public string GstNo { get; set; }
         public string Shop_image { get; set; }
-
+        
         public string ShopAddess { get; set; }
         public string FirmName { get; set; }
         public string BrandId { get; set; }
@@ -53,4 +58,6 @@
         public string pancard_number { get; set; } /* For oci Tej*/
         public string teslapayoutmode { get; set; } /* For oci Tej*/
     }
+
+  
 }

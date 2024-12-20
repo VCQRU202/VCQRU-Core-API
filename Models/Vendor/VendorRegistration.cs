@@ -3,6 +3,7 @@
     public class consumerrequest
     {
         public string Request { get; set; }
+        public string Comp_id { get; set; }
     }
     public class Consumer
     {
@@ -84,6 +85,7 @@
         public int UPIKYCSTATUS { get; set; }
         public string teslapayoutmode { get; set; }
         public string Selfie_image { get; set; }
+        public string upi { get; set; }
        
     }
 
