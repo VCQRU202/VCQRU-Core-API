@@ -1,41 +1,32 @@
-using CoreApi_BL_App.Models.Vendor;
+﻿using CoreApi_BL_App.Models.Vendor;
 using CoreApi_BL_App.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using Microsoft.Data.SqlClient;
-using CoreApi_BL_App.Models;
 using System.Data;
-using Microsoft.Extensions.Configuration;
-using Azure.Core;
-using System.Collections.Generic;
 
-namespace CoreApi_BL_App.Controllers.Vendor
+namespace CoreApi_BL_App.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UserRegistration : ControllerBase
+    public class Updateprofile : ControllerBase
     {
         private readonly DatabaseManager _databaseManager;
 
-        public UserRegistration(DatabaseManager databaseManager)
+        public Updateprofile(DatabaseManager databaseManager)
         {
             _databaseManager = databaseManager;
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateConsumer([FromBody] consumerrequest req)
+        public async Task<IActionResult> CreateConsumer([FromBody] updateprofilerequest req)
         {
             if (req == null)
                 return BadRequest(new ApiResponse<object>(false, "Consumer data is null."));
 
             try
             {
-                // Step 1: Parse the request data (extract fields dynamically)
                 var consumerData = req.Request.Split("<@>", StringSplitOptions.None);
-
                 var consumer = new Consumer();
-
                 foreach (var data in consumerData)
                 {
                     var keyValue = data.Split("=");
@@ -43,19 +34,22 @@ namespace CoreApi_BL_App.Controllers.Vendor
                     {
                         var key = keyValue[0].Trim();
                         var value = keyValue[1].Trim();
-                        if (key == "Vrkabel_User_Type")
+
+                        if(key== "Vrkabel_User_Type")
                         {
                             string qry = $"select top 1 Row_ID from User_Type where User_Type='{value}' and Comp_ID='{req.Comp_id}'";
-                            var dtuserid = await _databaseManager.ExecuteDataTableAsync(qry);
+                            var dtuserid= await  _databaseManager.ExecuteDataTableAsync(qry);
                             if (dtuserid.Rows.Count > 0)
                             {
                                 value = dtuserid.Rows[0]["Row_ID"].ToString();
                             }
                         }
 
-                        // Assign values to consumer object dynamically
                         switch (key)
                         {
+                            case "MobileNo":
+                                consumer.Mobile = value;
+                                break;
                             case "User_ID":
                                 consumer.User_ID = value;
                                 break;
@@ -65,7 +59,7 @@ namespace CoreApi_BL_App.Controllers.Vendor
                             case "Email":
                                 consumer.Email = value;
                                 break;
-                            case "MobileNo":
+                            case "Mobile":
                                 consumer.Mobile = value;
                                 break;
                             case "City":
@@ -78,17 +72,9 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.Password = value;
                                 break;
                             case "IsActive":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.IsActive = Convert.ToInt32(value);
                                 break;
                             case "IsDelete":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.IsDelete = Convert.ToInt32(value);
                                 break;
                             case "Address":
@@ -98,17 +84,9 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.Per_Address = value;
                                 break;
                             case "ReferralCode":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.ReferralCode = Convert.ToInt32(value);
                                 break;
                             case "IsSharedReferralCode":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.IsSharedReferralCode = Convert.ToBoolean(value);
                                 break;
                             case "employeeID":
@@ -145,17 +123,9 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.country = value;
                                 break;
                             case "Role_Id":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.Role_Id = Convert.ToInt32(value);
                                 break;
                             case "Created_by":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.Created_by = Convert.ToInt32(value);
                                 break;
                             case "Comp_id":
@@ -168,20 +138,12 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.token = value;
                                 break;
                             case "MStarId":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.MStarId = Convert.ToInt32(value);
                                 break;
                             case "Inox_User_Type":
                                 consumer.Inox_User_Type = value;
                                 break;
                             case "Vrkabel_User_Type":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.Vrkabel_User_Type = Convert.ToInt32(value);
                                 break;
                             case "cin_number":
@@ -196,24 +158,16 @@ namespace CoreApi_BL_App.Controllers.Vendor
                             case "dob":
                                 consumer.dob = value;
                                 break;
-                            case "gender":
+                            case "Gender":
                                 consumer.gender = value;
                                 break;
                             case "sur_name":
                                 consumer.sur_name = value;
                                 break;
                             case "communication_status":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.communication_status = Convert.ToInt32(value);
                                 break;
                             case "business_status":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.business_status = Convert.ToInt32(value);
                                 break;
                             case "house_number":
@@ -247,10 +201,6 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.profile_image = value;
                                 break;
                             case "VRKbl_KYC_status":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.VRKbl_KYC_status = Convert.ToInt32(value);
                                 break;
                             case "Additional":
@@ -293,10 +243,6 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.Pancard_Status = value;
                                 break;
                             case "BrandId":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.BrandId = Convert.ToInt32(value);
                                 break;
                             case "Aadhar_Status":
@@ -312,10 +258,6 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.Location = value;
                                 break;
                             case "User_Type":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.User_Type = Convert.ToInt32(value);
                                 break;
                             case "AddressProof":
@@ -325,10 +267,6 @@ namespace CoreApi_BL_App.Controllers.Vendor
                                 consumer.UpiidImage = value;
                                 break;
                             case "UPIKYCSTATUS":
-                                if (string.IsNullOrEmpty(value))
-                                {
-                                    value = "0";
-                                }
                                 consumer.UPIKYCSTATUS = Convert.ToInt32(value);
                                 break;
                             case "teslapayoutmode":
@@ -343,30 +281,15 @@ namespace CoreApi_BL_App.Controllers.Vendor
                     }
                 }
 
-                // Ensure the mobile number has the correct prefix if necessary
+
                 if (consumer.Mobile.Length == 10)
                     consumer.Mobile = "91" + consumer.Mobile;
 
-                // Check if the user already exists based on mobile number
                 string Querystring = $"select * from M_Consumer where MobileNo='{consumer.Mobile}' and IsDelete=0";
                 var dtconsu = await _databaseManager.ExecuteDataTableAsync(Querystring);
 
-                if (dtconsu.Rows.Count == 0)
+                if (dtconsu.Rows.Count > 0)
                 {
-                    // Insert a new consumer
-                    Dictionary<string, object> inputParameters = new Dictionary<string, object>
-                    {
-                        { "@MobileNo", consumer.Mobile },
-                        { "@Password", "12345" }, // You may need to generate a random password or send a default one
-                        { "@Entry_Date", DBNull.Value },
-                        { "@IsActive", true },
-                        { "@IsDelete", false }
-                    };
-                    List<string> outputParameters = new List<string> { "@User_ID", "@M_Consumerid" };
-                    Dictionary<string, object> result = _databaseManager.ExecuteStoredProcedure("USP_Consumerreg", inputParameters, outputParameters);
-                    string userId = result["@User_ID"].ToString();
-                    string consumerId = result["@M_Consumerid"].ToString();
-                    consumer.M_Consumerid =Convert.ToInt32( consumerId);
                     Dictionary<string, object> inputParametersupdate = new Dictionary<string, object>
                     {
                         { "@ConsumerName", consumer.ConsumerName },
@@ -417,176 +340,54 @@ namespace CoreApi_BL_App.Controllers.Vendor
                         { "@Agegroup", consumer. Agegroup ?? (object)DBNull.Value },
                         { "@ReferralCode", consumer.ReferralCode },
                         { "@teslapayoutmode", consumer.teslapayoutmode ?? (object)DBNull.Value },
-                        { "@M_ConsumerId", consumer.M_Consumerid }
+                        { "@M_ConsumerId", req.M_Consumerid }
                     };
-
-
                     var resultdata = await _databaseManager.ExecuteStoredProcedureDataSetAsync("USP_UPDATECONSUMERDATA", inputParametersupdate);
-
-
-
-                    return Ok(new ApiResponse<object>(true, "Consumer registered successfully.", new
+                    string Querystring1 = $"select * from M_Consumer where MobileNo='{consumer.Mobile}' and IsDelete=0";
+                    var dtconsu1 = await _databaseManager.ExecuteDataTableAsync(Querystring);
+                    if (dtconsu1.Rows.Count > 0)
                     {
-                        UserId = userId,
-                        M_Consumerid = consumerId,
-                        MobileNo = consumer.Mobile,
-                        ConsumerName = consumer.ConsumerName
-                    }));
+                        DataRow row = dtconsu1.Rows[0];
+                        // Map the retrieved data to User_Details
+                        var response = new
+                        {
+                            M_consumerid = Convert.ToInt32(row["M_Consumerid"]),
+                            User_ID = row["User_ID"]?.ToString(),
+                            ConsumerName = row["ConsumerName"]?.ToString(),
+                            Email = row["Email"]?.ToString(),
+                            MobileNo = row["MobileNo"]?.ToString(),
+                            City = row["City"]?.ToString(),
+                            state = row["state"]?.ToString(),
+                            PinCode = row["PinCode"]?.ToString(),
+                            Address = row["Address"]?.ToString(),
+                            aadharNumber = row["aadharNumber"]?.ToString(),
+                            district = row["district"]?.ToString(),
+                            country = row["country"]?.ToString(),
+                            Vrkabel_User_Type = row["Vrkabel_User_Type"]?.ToString(),
+                            dob = row["dob"]?.ToString(),
+                            gender = row["gender"]?.ToString(),
+                        };
+                        return Ok(new ApiResponse<object>(true, "Consumer profile updated successfully.", response));
+                    }
+                    return Ok(new ApiResponse<object>(true, "Consumer profile updated successfully.", consumer));
                 }
                 else
                 {
-                    return Conflict(new ApiResponse<object>(false, "Consumer already exists."));
+                    return Conflict(new ApiResponse<object>(false, "Invalid Consumer Details."));
                 }
             }
             catch (Exception ex)
             {
-                _databaseManager.ExceptionLogs("Find Error in UserRegistration API :" + ex.Message + "  ,Track and Trace :" + ex.StackTrace);
+                _databaseManager.ExceptionLogs("Find Error in Profile Update API :" + ex.Message + "  ,Track and Trace :" + ex.StackTrace);
                 return StatusCode(500, new ApiResponse<object>(false, $"Internal Server Error: {ex.Message}"));
             }
         }
+    }
 
-
-        private SqlParameter CreateSqlParameter(string paramName, object value)
-        {
-            if (value == null)
-                return new SqlParameter(paramName, DBNull.Value);
-
-            // Explicitly check if value is numeric
-            if (value is int)
-                return new SqlParameter(paramName, SqlDbType.Int) { Value = value };
-            else if (value is decimal)
-                return new SqlParameter(paramName, SqlDbType.Decimal) { Value = value };
-            else if (value is long)
-                return new SqlParameter(paramName, SqlDbType.BigInt) { Value = value };
-            else if (value is double)
-                return new SqlParameter(paramName, SqlDbType.Float) { Value = value };
-            else if (value is string)
-                return new SqlParameter(paramName, SqlDbType.NVarChar) { Value = value };
-            else if (value is DateTime)
-                return new SqlParameter(paramName, SqlDbType.DateTime) { Value = value };
-
-            return new SqlParameter(paramName, value);
-        }
-
-
-        [HttpGet("Registration/{M_Consumerid}")]
-        public async Task<IActionResult> GetConsumer(int consumerId)
-        {
-            // SQL connection string
-            var connectionString = _configuration.GetConnectionString("defaultConnectionbeta");
-
-            using (var connection = new SqlConnection(connectionString))
-            {
-                await connection.OpenAsync();
-
-                // SQL query to fetch consumer by Consumerid
-                var query = "SELECT * FROM Consumers WHERE M_Consumerid = @M_Consumerid";
-
-                using (var command = new SqlCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@M_Consumerid", consumerId);
-
-                    try
-                    {
-                        var reader = await command.ExecuteReaderAsync();
-                        if (await reader.ReadAsync())
-                        {
-                            var consumer = new Consumer
-                            {
-                                M_Consumerid = reader.GetInt32(reader.GetOrdinal("M_Consumerid")),
-                                User_ID = reader.GetString(reader.GetOrdinal("User_ID")),
-                                ConsumerName = reader.GetString(reader.GetOrdinal("ConsumerName")),
-                                Email = reader.GetString(reader.GetOrdinal("Email")),
-                                Mobile = reader.GetString(reader.GetOrdinal("MobileNo")),
-                                City = reader.GetString(reader.GetOrdinal("City")),
-                                PinCode = reader.GetString(reader.GetOrdinal("PinCode")),
-                                Password = reader.GetString(reader.GetOrdinal("Password")),
-                                Entry_Date = reader.GetDateTime(reader.GetOrdinal("Entry_Date")),
-                                IsActive = reader.GetInt32(reader.GetOrdinal("IsActive")),
-                                IsDelete = reader.GetInt32(reader.GetOrdinal("IsDelete")),
-                                Address = reader.GetString(reader.GetOrdinal("Address")),
-                                Per_Address = reader.GetString(reader.GetOrdinal("Per_Address")),
-                                ReferralCode = reader.GetInt32(reader.GetOrdinal("ReferralCode")),
-                                IsSharedReferralCode = reader.GetBoolean(reader.GetOrdinal("IsSharedReferralCode")),
-                                employeeID = reader.GetString(reader.GetOrdinal("employeeID")),
-                                distributorID = reader.GetString(reader.GetOrdinal("distributorID")),
-                                aadharNumber = reader.GetString(reader.GetOrdinal("aadharNumber")),
-                                aadharFile = reader.GetString(reader.GetOrdinal("aadharFile")),
-                                aadharback = reader.GetString(reader.GetOrdinal("aadharback")),
-                                aadharUploadedate = reader.GetDateTime(reader.GetOrdinal("aadharUploadedate")),
-                                aadharUploadedBy = reader.GetString(reader.GetOrdinal("aadharUploadedBy")),
-                                Aadhar_source = reader.GetString(reader.GetOrdinal("Aadhar_source")),
-                                village = reader.GetString(reader.GetOrdinal("village")),
-                                district = reader.GetString(reader.GetOrdinal("district")),
-                                state = reader.GetString(reader.GetOrdinal("state")),
-                                country = reader.GetString(reader.GetOrdinal("country")),
-                                Role_Id = reader.GetInt32(reader.GetOrdinal("Role_Id")),
-                                Created_by = reader.GetInt32(reader.GetOrdinal("Created_by")),
-                                Comp_id = reader.GetString(reader.GetOrdinal("Comp_id")),
-                                SellerName = reader.GetString(reader.GetOrdinal("SellerName")),
-                                token = reader.GetString(reader.GetOrdinal("token")),
-                                MStarId = reader.GetInt32(reader.GetOrdinal("MStarId")),
-                                Inox_User_Type = reader.GetString(reader.GetOrdinal("Inox_User_Type")),
-                                Vrkabel_User_Type = reader.GetInt32(reader.GetOrdinal("Vrkabel_User_Type")),
-                                cin_number = reader.GetString(reader.GetOrdinal("cin_number")),
-                                ref_cin_number = reader.GetString(reader.GetOrdinal("ref_cin_number")),
-                                designation = reader.GetString(reader.GetOrdinal("designation")),
-                                dob = reader.GetString(reader.GetOrdinal("dob")),
-                                gender = reader.GetString(reader.GetOrdinal("gender")),
-                                sur_name = reader.GetString(reader.GetOrdinal("sur_name")),
-                                communication_status = reader.GetInt32(reader.GetOrdinal("communication_status")),
-                                business_status = reader.GetInt32(reader.GetOrdinal("business_status")),
-                                house_number = reader.GetString(reader.GetOrdinal("house_number")),
-                                land_mark = reader.GetString(reader.GetOrdinal("land_mark")),
-                                owner_number = reader.GetString(reader.GetOrdinal("owner_number")),
-                                shop_name = reader.GetString(reader.GetOrdinal("shop_name")),
-                                pancard_number = reader.GetString(reader.GetOrdinal("pancard_number")),
-                                gst_number = reader.GetString(reader.GetOrdinal("gst_number")),
-                                pan_card_file = reader.GetString(reader.GetOrdinal("pan_card_file")),
-                                shop_file = reader.GetString(reader.GetOrdinal("shop_file")),
-                                Other_Role = reader.GetString(reader.GetOrdinal("Other_Role")),
-                                profile_image = reader.GetString(reader.GetOrdinal("profile_image")),
-                                VRKbl_KYC_status = reader.GetInt32(reader.GetOrdinal("VRKbl_KYC_status")),
-                                Additional = reader.GetString(reader.GetOrdinal("Additional")),
-                                remark = reader.GetString(reader.GetOrdinal("remark")),
-                                panekycStatus = reader.GetString(reader.GetOrdinal("panekycStatus")),
-                                aadharkycStatus = reader.GetString(reader.GetOrdinal("aadharkycStatus")),
-                                bankekycStatus = reader.GetString(reader.GetOrdinal("bankekycStatus")),
-                                PanHolderName = reader.GetString(reader.GetOrdinal("PanHolderName")),
-                                AadharHolderName = reader.GetString(reader.GetOrdinal("AadharHolderName")),
-                                Shop_address = reader.GetString(reader.GetOrdinal("Shop_address")),
-                                FirmName = reader.GetString(reader.GetOrdinal("FirmName")),
-                                Apptoken = reader.GetString(reader.GetOrdinal("Apptoken")),
-                                AppVersion = reader.GetString(reader.GetOrdinal("AppVersion")),
-                                Agegroup = reader.GetString(reader.GetOrdinal("Agegroup")),
-                                Pancard_Status = reader.GetString(reader.GetOrdinal("Pancard_Status")),
-                                BrandId = reader.GetInt32(reader.GetOrdinal("BrandId")),
-                                Aadhar_Status = reader.GetString(reader.GetOrdinal("Aadhar_Status")),
-                                Passbook_Status = reader.GetString(reader.GetOrdinal("Passbook_Status")),
-                                Ekyc_status = reader.GetString(reader.GetOrdinal("Ekyc_status")),
-                                Location = reader.GetString(reader.GetOrdinal("Location")),
-                                User_Type = reader.GetInt32(reader.GetOrdinal("User_Type")),
-                                AddressProof = reader.GetString(reader.GetOrdinal("AddressProof")),
-                                UpiidImage = reader.GetString(reader.GetOrdinal("UpiidImage")),
-                                UPIKYCSTATUS = reader.GetInt32(reader.GetOrdinal("UPIKYCSTATUS")),
-                                teslapayoutmode = reader.GetString(reader.GetOrdinal("teslapayoutmode")),
-                                Selfie_image = reader.GetString(reader.GetOrdinal("Selfie_image"))
-                            };
-
-                            return Ok(new ApiResponse<Consumer>(true, "Consumer data fetched successfully", consumer));
-                        }
-                        else
-                        {
-                            return NotFound(new ApiResponse<object>(false, "Consumer not found"));
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        return StatusCode(500, new ApiResponse<object>(false, $"Error: {ex.Message}"));
-                    }
-                }
-            }
-        }
-
+    public class updateprofilerequest
+    {
+        public string Request { get; set; }
+        public string? M_Consumerid { get; set; }
+        public string? Comp_id { get; set; }
     }
 }

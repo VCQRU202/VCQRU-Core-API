@@ -4,6 +4,7 @@
 
     public class FieldSetting
     {
+        public string LableName { get; set; }
         public string FieldName { get; set; }
         public string FieldType { get; set; }
         public string hint { get; set; }

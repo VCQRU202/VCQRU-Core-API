@@ -1,4 +1,4 @@
-﻿using CoreApi_BL_App.Services;
+using CoreApi_BL_App.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
@@ -37,7 +37,7 @@ namespace CoreApi_BL_App.Controllers
 
                 // Validate company ID
                 if (string.IsNullOrEmpty(req.Comp_ID) || req.Comp_ID.Length <= 4)
-                    return BadRequest(new ApiResponse<object>(false, "Company Id cannot be null or less than 5 characters."));
+                    return BadRequest(new ApiResponse<object>(false, "Company ID cannot be null or less than 5 characters."));
 
                 // Validate M_Consumerid
                 if (!int.TryParse(req.M_Consumerid, out int M_Consumerid))
@@ -45,25 +45,39 @@ namespace CoreApi_BL_App.Controllers
 
                 var UserkycData = new UserkycData();
 
-                // SQL query
-                string query = $"SELECT TOP 1 [M_Consumerid],case when panekycStatus ='Online' Then '1' when panekycStatus='Failed' then '2' else '0' end panekycStatus,case when aadharkycStatus ='Online' Then '1'  when aadharkycStatus='Failed' then '2'  else '0' end aadharkycStatus,case when bankekycStatus ='Online' Then '1' when bankekycStatus='Failed' then '2' else '0' end bankekycStatus,case when UPIKYCSTATUS ='Online' Then '1' when UPIKYCSTATUS='Failed' then '2' else '0' end UPIKYCSTATUS,case when VRKbl_KYC_status =1 Then 'Approved' when VRKbl_KYC_status =2 Then 'Rejected'  else 'Pending' end VRKbl_KYC_status FROM M_Consumer WHERE M_Consumerid = {M_Consumerid} ORDER BY [M_Consumerid] DESC";
+                // SQL query to get KYC status
+                string query = @"SELECT TOP 1 
+                                    [M_Consumerid],
+                                    CASE WHEN panekycStatus = 'Online' THEN '1' WHEN panekycStatus = 'Failed' THEN '2' ELSE '0' END AS panekycStatus,
+                                    CASE WHEN aadharkycStatus = 'Online' THEN '1' WHEN aadharkycStatus = 'Failed' THEN '2' ELSE '0' END AS aadharkycStatus,
+                                    CASE WHEN bankekycStatus = 'Online' THEN '1' WHEN bankekycStatus = 'Failed' THEN '2' ELSE '0' END AS bankekycStatus,
+                                    CASE WHEN UPIKYCSTATUS = 'Online' THEN '1' WHEN UPIKYCSTATUS = 'Failed' THEN '2' ELSE '0' END AS UPIKYCSTATUS,
+                                    CASE WHEN VRKbl_KYC_status = 1 THEN 'Approved' WHEN VRKbl_KYC_status = 2 THEN 'Rejected' ELSE 'Pending' END AS VRKbl_KYC_status
+                                 FROM M_Consumer 
+                                 WHERE M_Consumerid = @M_Consumerid 
+                                 ORDER BY [M_Consumerid] DESC";
 
-                //var parameters = new { M_Consumerid };
-                var dt = await _databaseManager.ExecuteDataTableAsync(query);
+                var parameters = new { M_Consumerid };
+                var dt = await _databaseManager.ExecuteDataTableAsync(query, parameters);
 
                 if (dt.Rows.Count > 0)
                 {
                     // Map data to response object
-
                     UserkycData.M_Consumerid = M_Consumerid;
                     UserkycData.PanekycStatusString = dt.Rows[0]["panekycStatus"].ToString();
                     UserkycData.AadharkycStatusString = dt.Rows[0]["aadharkycStatus"].ToString();
                     UserkycData.BankekycStatusString = dt.Rows[0]["bankekycStatus"].ToString();
-                    UserkycData.VRKbl_KYC_StatusString = dt.Rows[0]["VRKbl_KYC_status"].ToString();
                     UserkycData.UPI_KYC_StatusString = dt.Rows[0]["UPIKYCSTATUS"].ToString();
+                    UserkycData.VRKbl_KYC_StatusString = dt.Rows[0]["VRKbl_KYC_status"].ToString();
 
-                    string query1 = $@"SELECT TOP 1 kyc_Details FROM BrandSettings  WHERE Comp_ID = '{req.Comp_ID}' ORDER BY [Comp_ID] DESC";
-                    var dt1 = await _databaseManager.ExecuteDataTableAsync(query1);
+                    // Query to fetch additional KYC details
+                    string query1 = @"SELECT TOP 1 kyc_Details 
+                                      FROM BrandSettings  
+                                      WHERE Comp_ID = @Comp_ID 
+                                      ORDER BY [Comp_ID] DESC";
+
+                    var dt1 = await _databaseManager.ExecuteDataTableAsync(query1, new { req.Comp_ID });
+
                     if (dt1.Rows.Count > 0)
                     {
                         string kyc_DetailsString = dt1.Rows[0]["kyc_Details"].ToString();
@@ -85,22 +99,9 @@ namespace CoreApi_BL_App.Controllers
                 return StatusCode(500, new ApiResponse<object>(false, "An unexpected error occurred."));
             }
         }
-
-        // Helper method to map KYC status
-        private string GetKycStatus(string status)
-        {
-            return status switch
-            {
-                "0" => "Pending",
-                "1" => "Approved",
-                "2" => "Rejected",
-                _ => "Pending"
-            };
-        }
     }
 
-
-public class UserKycStatusClass
+    public class UserKycStatusClass
     {
         public string Comp_ID { get; set; }
         public string Mobile { get; set; }
@@ -120,6 +121,7 @@ public class UserKycStatusClass
         public string BankkyccEnable { get; set; }
         public string UPI_KYC_StatusString { get; set; }
     }
+
     public class ApiResponse<T>
     {
         public bool Success { get; set; }
@@ -134,4 +136,3 @@ public class UserKycStatusClass
         }
     }
 }
-

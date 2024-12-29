@@ -1,11 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using CoreApi_BL_App.Models.Vendor;
 using CoreApi_BL_App.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using CoreApi_BL_App.Services;
 
 namespace CoreApi_BL_App.Controllers.Vendor
 {
@@ -13,78 +15,42 @@ namespace CoreApi_BL_App.Controllers.Vendor
     [ApiController]
     public class UserRegistrationFields : ControllerBase
     {
+        private readonly DatabaseManager _databaseManager;
 
-        private readonly IConfiguration _configuration;
-
-        public UserRegistrationFields(IConfiguration configuration)
+        public UserRegistrationFields(DatabaseManager databaseManager)
         {
-            _configuration = configuration;
+            _databaseManager = databaseManager;
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateFieldSetting([FromBody] List<FieldSetting> fieldSettings)
+        public async Task<IActionResult> GetFieldSettings([FromBody] BrandsettingRequest Req)
         {
-            if (fieldSettings == null || !fieldSettings.Any())
-            {
-                return BadRequest(new ApiResponse<object>(false, "Field settings are required."));
-            }
-
             try
             {
-                // Convert the field settings list to JSON
-                var json = JsonConvert.SerializeObject(fieldSettings);
+                string Querystring = $"SELECT RegistrationFields FROM BrandSettings WHERE Comp_ID='{Req.Comp_id}'";
+                var dtconsu = await _databaseManager.ExecuteDataTableAsync(Querystring);
 
-                using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("defaultConnectionbeta")))
+                if (dtconsu.Rows.Count > 0)
                 {
-                    string query = "INSERT INTO BrandSettings (RegistrationFields) VALUES (@RegistrationFields)";
-                    connection.Open();
-                    using (SqlCommand command = new SqlCommand(query, connection))
-                    {
-                        command.Parameters.Add(new SqlParameter("@RegistrationFields", SqlDbType.NVarChar) { Value = json });
+                    // Extract RegistrationFields as a string (assuming it contains a JSON string)
+                    var registrationFieldsJson = dtconsu.Rows[0]["RegistrationFields"].ToString();
 
-                        int rowsAffected = await command.ExecuteNonQueryAsync();
-                        if (rowsAffected > 0)
-                        {
-                            return Ok(new ApiResponse<object>(true, "Field settings inserted successfully."));
-                        }
-                        else
-                        {
-                            return StatusCode(500, new ApiResponse<object>(false, "An error occurred while inserting data into the database."));
-                        }
+                    // Check if RegistrationFields is not empty or null
+                    if (!string.IsNullOrEmpty(registrationFieldsJson))
+                    {
+                        // Deserialize the JSON string into the appropriate model (List<FieldSetting>)
+                        var fieldSettings = JsonConvert.DeserializeObject<List<FieldSetting>>(registrationFieldsJson);
+
+                        return Ok(new ApiResponse<List<FieldSetting>>(true, "Registration fields retrieved successfully", fieldSettings));
+                    }
+                    else
+                    {
+                        return StatusCode(404, new ApiResponse<object>(false, "RegistrationFields is empty or null.", null));
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new ApiResponse<object>(false, "Internal server error occurred.", ex.Message));
-            }
-        }
-
-        // GET: Retrieve form field settings from the database
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetFieldSettings(int id)
-        {
-            try
-            {
-                using (SqlConnection connection = new SqlConnection(_configuration.GetConnectionString("defaultConnectionbeta")))
+                else
                 {
-                    string query = "SELECT RegistrationFields FROM BrandSettings WHERE ID = @ID";
-                    connection.Open();
-                    using (SqlCommand command = new SqlCommand(query, connection))
-                    {
-                        command.Parameters.Add(new SqlParameter("@ID", SqlDbType.Int) { Value = id });
-
-                        var result = await command.ExecuteScalarAsync();
-                        if (result != null)
-                        {
-                            var fieldSettings = JsonConvert.DeserializeObject<List<FieldSetting>>(result.ToString());
-                            return Ok(new ApiResponse<List<FieldSetting>>(true, "Field settings retrieved successfully", fieldSettings));
-                        }
-                        else
-                        {
-                            return NotFound(new ApiResponse<object>(false, "Field settings not found for the provided ID."));
-                        }
-                    }
+                    return StatusCode(404, new ApiResponse<object>(false, "No records found for the given Comp_id.", null));
                 }
             }
             catch (SqlException sqlEx)
@@ -97,6 +63,4 @@ namespace CoreApi_BL_App.Controllers.Vendor
             }
         }
     }
-
 }
-
