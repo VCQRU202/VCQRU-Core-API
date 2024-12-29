@@ -1,0 +1,19 @@
+2024/12/15 06:19:08 PM : Find Exception in Codecheck API with logObject cannot be cast from DBNull to other types. TRack Exception :    at System.DBNull.System.IConvertible.ToInt32(IFormatProvider provider)
+   at CoreApi_BL_App.Services.DatabaseManager.ServiceRequestCheck(Object9420 Reg, DataTable dsres, Boolean IsCheckedUse_Count)
+2024/12/16 04:30:11 PM : Error in Profiledetails API: Object cannot be cast from DBNull to other types.  ,Track and Trace:    at System.DBNull.System.IConvertible.ToBoolean(IFormatProvider provider)
+   at CoreApi_BL_App.Controllers.Profiledetails.MapDataToProfile(DataRow row)
+   at CoreApi_BL_App.Controllers.Profiledetails.GetFieldSettings(profiledetailsrequest Req)
+2024/12/16 04:40:21 PM : Error in Profiledetails API: Object cannot be cast from DBNull to other types.  ,Track and Trace:    at System.DBNull.System.IConvertible.ToBoolean(IFormatProvider provider)
+   at CoreApi_BL_App.Controllers.Profiledetails.MapDataToProfile(DataRow row) in D:\VCQRU-Core-API\Controllers\Profiledetails.cs:line 64
+   at CoreApi_BL_App.Controllers.Profiledetails.GetFieldSettings(profiledetailsrequest Req) in D:\VCQRU-Core-API\Controllers\Profiledetails.cs:line 46
+2024/12/17 01:05:17 PM : Error in Profiledetails API: Column 'AadharCard' does not belong to table .  ,Track and Trace:    at System.Data.DataRow.GetDataColumn(String columnName)
+   at System.Data.DataRow.get_Item(String columnName)
+   at CoreApi_BL_App.Controllers.Profiledetails.MapDataToProfile(DataRow row, String profiledata, String kycdata) in D:\VCQRU-Core-API\Controllers\Profiledetails.cs:line 95
+   at CoreApi_BL_App.Controllers.Profiledetails.GetFieldSettings(profiledetailsrequest Req) in D:\VCQRU-Core-API\Controllers\Profiledetails.cs:line 61
+2024/12/17 07:34:00 PM : Find Error in Profile Update API :Object reference not set to an instance of an object.  ,Track and Trace :   at CoreApi_BL_App.Controllers.Updateprofile.CreateConsumer(updateprofilerequest req) in D:\VCQRU-Core-API\Controllers\Updateprofile.cs:line 282
+2024/12/18 03:51:24 AM : Find Error in Profile Update API :Column 'Vr_dob' does not belong to table .  ,Track and Trace :   at System.Data.DataRow.GetDataColumn(String columnName)
+   at System.Data.DataRow.get_Item(String columnName)
+   at CoreApi_BL_App.Controllers.Updateprofile.CreateConsumer(updateprofilerequest req)
+2024/12/19 07:47:24 PM : Find Error in UserRegistration API :The input string 'Painter' was not in a correct format.  ,Track and Trace :   at System.Number.ThrowFormatException[TChar](ReadOnlySpan`1 value)
+   at System.Convert.ToInt32(String value)
+   at CoreApi_BL_App.Controllers.Vendor.UserRegistration.CreateConsumer(consumerrequest req)
