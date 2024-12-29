@@ -1,4 +1,4 @@
-﻿namespace CoreApi_BL_App.Models
+namespace CoreApi_BL_App.Models
 {
 
 
