@@ -26,6 +26,7 @@ namespace CoreApi_BL_App.Controllers
         [HttpPost]
         public async Task<IActionResult> Verifycouponcode([FromBody] VerifyCouponRequest req)
         {
+            string Invalimsg = "The entered code is invalid. Please enter a valid 13-digit code or call us at 7353000903.";
             string Results=string.Empty;
             Object9420 Reg = new Object9420();
             object returnData=null;
@@ -82,7 +83,8 @@ namespace CoreApi_BL_App.Controllers
                     }
                     else
                     {
-                        Results = "The entered coupon code is invalid, kindly enter a valid coupon code";
+
+                        Results = Invalimsg;
                     }
                     Reg.Is_Success = 0;
                     await _databaseManager.InsertProductInquiryAsync(Reg);
@@ -100,7 +102,7 @@ namespace CoreApi_BL_App.Controllers
                     }
                     else
                     {
-                        Results = "The entered coupon code is invalid, kindly enter a valid coupon code";
+                        Results = Invalimsg;
                     }
                     Reg.Is_Success = 0;
                     await _databaseManager.InsertProductInquiryAsync(Reg);
@@ -331,7 +333,7 @@ namespace CoreApi_BL_App.Controllers
                             }
                             else
                             {
-                                Results = "The entered coupon code is invalid, kindly enter a valid coupon code";
+                                Results = Invalimsg;
                             }
                             Reg.Is_Success = 0;
                             await _databaseManager.InsertProductInquiryAsync(Reg);
@@ -350,7 +352,7 @@ namespace CoreApi_BL_App.Controllers
                     }
                     else
                     {
-                        Results = "The entered coupon code is invalid, kindly enter a valid coupon code";
+                        Results = Invalimsg;
                     }
                     Reg.Is_Success = 0;
                     await _databaseManager.InsertProductInquiryAsync(Reg);

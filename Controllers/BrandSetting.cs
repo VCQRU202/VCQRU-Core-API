@@ -27,30 +27,49 @@ namespace CoreApi_BL_App.Controllers
         {
             try
             {
-                string Querystring = $"SELECT CompData FROM BrandSettings WHERE Comp_ID='{Req.Comp_id}'";
+                string Querystring = $"SELECT CompData,Claim_Settings FROM BrandSettings WHERE Comp_ID='{Req.Comp_id}'";
                 var dtconsu = await _databaseManager.ExecuteDataTableAsync(Querystring);
 
                 if (dtconsu.Rows.Count > 0)
                 {
-                    // Extract CompData as a string (assuming it contains a JSON string)
                     var compDataJson = dtconsu.Rows[0]["CompData"].ToString();
+                    var claimSettingsJson = dtconsu.Rows[0]["Claim_Settings"].ToString();
 
-                    // Check if CompData is not empty or null
-                    if (!string.IsNullOrEmpty(compDataJson))
-                    {
-                        // Deserialize the JSON string into the appropriate model
-                        var settingsModel = JsonConvert.DeserializeObject<BrandSettingcs>(compDataJson);
+                    if (string.IsNullOrEmpty(compDataJson))
+                        return NotFound(new ApiResponse<object>(false, "Comp data is empty or null.", null));
 
-                        return Ok(new ApiResponse<BrandSettingcs>(true, "Brand settings retrieved successfully", settingsModel));
-                    }
-                    else
+                    if (string.IsNullOrEmpty(claimSettingsJson))
+                        return NotFound(new ApiResponse<object>(false, "Claim settings are empty or null.", null));
+
+                    var brandSettings = JsonConvert.DeserializeObject<BrandSettingcs>(compDataJson);
+                    var claimSettings = JsonConvert.DeserializeObject<Dictionary<string, string>>(claimSettingsJson);
+
+                    foreach (var setting in claimSettings)
                     {
-                        return StatusCode(404, new ApiResponse<object>(false, "CompData is empty or null.", null));
+                       // var property = brandSettings.GetType().GetProperty(setting.Key);
+                        var property = brandSettings.GetType()
+                        .GetProperties()
+                        .FirstOrDefault(p => string.Equals(p.Name, setting.Key, StringComparison.OrdinalIgnoreCase));
+                        if (property != null && property.CanWrite)
+                        {
+                            try
+                            {
+                                var convertedValue = Convert.ChangeType(setting.Value, property.PropertyType);
+                                property.SetValue(brandSettings, convertedValue);
+                            }
+                            catch
+                            {
+                                // Log the error and continue
+                                Console.WriteLine($"Failed to set property: {setting.Key}");
+                            }
+                        }
                     }
+
+                    return Ok(new ApiResponse<object>(true, "Brand settings retrieved successfully", brandSettings));
                 }
                 else
                 {
-                    return StatusCode(404, new ApiResponse<object>(false, "No records found for the given Comp_id.", null));
+                    return NotFound(new ApiResponse<object>(false, "No records found for the given Comp_ID.", null));
                 }
             }
             catch (SqlException sqlEx)
@@ -62,5 +81,6 @@ namespace CoreApi_BL_App.Controllers
                 return StatusCode(500, new ApiResponse<object>(false, "Internal server error occurred.", ex.Message));
             }
         }
+    
     }
 }

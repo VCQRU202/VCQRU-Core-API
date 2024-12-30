@@ -1,0 +1,4 @@
+2024/12/24 04:48:33 PM : Error in ICONS API: Error reading JObject from JsonReader. Current JsonReader item is not an object: StartArray. Path '', line 1, position 1. ,StackTrace:    at Newtonsoft.Json.Linq.JObject.Load(JsonReader reader, JsonLoadSettings settings)
+   at Newtonsoft.Json.Linq.JObject.Parse(String json, JsonLoadSettings settings)
+   at Newtonsoft.Json.Linq.JObject.Parse(String json)
+   at CoreApi_BL_App.Controllers.DashboardICons.ICONS(dashboardiconsrequest Req) in D:\VCQRU-Core-API\Controllers\DashboardICons.cs:line 30

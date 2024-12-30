@@ -9,6 +9,7 @@ using System.Data;
 using Microsoft.Extensions.Configuration;
 using Azure.Core;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 namespace CoreApi_BL_App.Controllers.Vendor
 {
@@ -45,11 +46,19 @@ namespace CoreApi_BL_App.Controllers.Vendor
                         var value = keyValue[1].Trim();
                         if (key == "Vrkabel_User_Type")
                         {
-                            string qry = $"select top 1 Row_ID from User_Type where User_Type='{value}' and Comp_ID='{req.Comp_id}'";
+                            string qry = $"select top 1 Row_ID from User_Type where User_Type='{value}' and Comp_ID='{consumer.Comp_id}'";
                             var dtuserid = await _databaseManager.ExecuteDataTableAsync(qry);
                             if (dtuserid.Rows.Count > 0)
                             {
                                 value = dtuserid.Rows[0]["Row_ID"].ToString();
+                            }
+                        }
+
+                        if (key == "ReferralCode")
+                        {
+                            if (!int.TryParse(value, out _))
+                            {
+                                return BadRequest(new ApiResponse<object>(false, "Referralcode should be integer"));
                             }
                         }
 
@@ -423,9 +432,448 @@ namespace CoreApi_BL_App.Controllers.Vendor
 
                     var resultdata = await _databaseManager.ExecuteStoredProcedureDataSetAsync("USP_UPDATECONSUMERDATA", inputParametersupdate);
 
+                    string query = $@"
+                    SELECT TOP 1 
+                        kyc_Details, 
+                        Claim_Settings 
+                    FROM BrandSettings 
+                    WHERE Comp_ID = '{consumer.Comp_id}' 
+                    ORDER BY [Comp_ID] DESC";
+
+                    DataTable dt = await _databaseManager.ExecuteDataTableAsync(query);
+                    JArray compDataArray;
+                    if (dt.Rows.Count > 0)
+                    {
+
+                        
+                        string kycDetailsString = dt.Rows[0]["kyc_Details"].ToString();
+                        var kycDetails = string.IsNullOrEmpty(kycDetailsString) ? new Dictionary<string, object>() : JObject.Parse(kycDetailsString).ToObject<Dictionary<string, object>>();
+                    }
+                    //  kyc notification----------
+                    string queryKycSett = $@" SELECT TOP 1 kyc_Details, Claim_Settings FROM BrandSettings  WHERE Comp_ID = '{consumer.Comp_id}' ORDER BY [Comp_ID] DESC";
+
+                    string AadharKycVendor = string.Empty;
+                    string PANKycVendor = string.Empty;
+                    string AccountKycVendor = string.Empty;
+                    string UPIKycVendor = string.Empty;
+
+                    string PanekycStatusUser = string.Empty;
+                    string AadharkycStatusUser = string.Empty;
+                    string BankekycStatusUser = string.Empty;
+                    string UPI_KYC_StatusUser = string.Empty;
+                    string VRKbl_KYC_StatusUser = string.Empty;
+
+                    string queryUserDataKyc = $"SELECT TOP 1 [M_Consumerid],case when panekycStatus ='Online' Then '1' when panekycStatus='Failed' then '2' else '0' end panekycStatus,case when aadharkycStatus ='Online' Then '1'  when aadharkycStatus='Failed' then '2'  else '0' end aadharkycStatus,case when bankekycStatus ='Online' Then '1' when bankekycStatus='Failed' then '2' else '0' end bankekycStatus,case when UPIKYCSTATUS = 1 Then '1' when UPIKYCSTATUS= 2 then '2' else '0' end UPIKYCSTATUS,VRKbl_KYC_status FROM M_Consumer WHERE M_Consumerid = '{consumer.M_Consumerid}' ORDER BY [M_Consumerid] DESC";
+                    var dtUserDataKyc = await _databaseManager.ExecuteDataTableAsync(queryUserDataKyc);
+
+                    if (dtUserDataKyc.Rows.Count > 0)
+                    {
+                        PanekycStatusUser = dtUserDataKyc.Rows[0]["panekycStatus"].ToString();
+                        AadharkycStatusUser = dtUserDataKyc.Rows[0]["aadharkycStatus"].ToString();
+                        BankekycStatusUser = dtUserDataKyc.Rows[0]["bankekycStatus"].ToString();
+                        VRKbl_KYC_StatusUser = dtUserDataKyc.Rows[0]["VRKbl_KYC_status"].ToString();
+                        UPI_KYC_StatusUser = dtUserDataKyc.Rows[0]["UPIKYCSTATUS"].ToString();
+                    }
+
+                    DataTable dtKycstt = await _databaseManager.ExecuteDataTableAsync(queryKycSett);
+                    //JArray compDataArray1;
+                    if (dtKycstt.Rows.Count > 0)
+                    {
+                        string kycDetailsString = dtKycstt.Rows[0]["kyc_Details"].ToString();
+                        var kycDetails = string.IsNullOrEmpty(kycDetailsString) ? new Dictionary<string, object>() : JObject.Parse(kycDetailsString).ToObject<Dictionary<string, object>>();
+                        AadharKycVendor = kycDetails.ContainsKey("AadharCard") ? kycDetails["AadharCard"]?.ToString() ?? string.Empty : string.Empty;
+                        PANKycVendor = kycDetails.ContainsKey("PANCard") ? kycDetails["PANCard"]?.ToString() ?? string.Empty : string.Empty;
+                        AccountKycVendor = kycDetails.ContainsKey("AccountDetails") ? kycDetails["AccountDetails"]?.ToString() ?? string.Empty : string.Empty;
+                        UPIKycVendor = kycDetails.ContainsKey("UPI") ? kycDetails["UPI"]?.ToString() ?? string.Empty : string.Empty;
+                        DateTime expDate = System.DateTime.Now;
+                        string msgNotiTempID = string.Empty;
+                        string query1NotiEntry = string.Empty;
+                        string queryNotifyEntryCheck = string.Empty;
+                        //string queryNotifyUserEntryCheck = string.Empty;
+
+                        if ((AadharKycVendor == "Yes" || PANKycVendor == "Yes" || AccountKycVendor == "Yes" || UPIKycVendor == "Yes") && VRKbl_KYC_StatusUser != "1")
+                        {
+                            if (VRKbl_KYC_StatusUser == "0" || VRKbl_KYC_StatusUser == "" || VRKbl_KYC_StatusUser == null)
+                            {
 
 
-                    return Ok(new ApiResponse<object>(true, "Consumer registered successfully.", new
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='0' and notiType='KYC' and KycCat='KYC Status' and Isactive='1'";
+                                    var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+
+                                    if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                    else
+                                    {
+                                        queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='0' and notiType='KYC' and KycCat='KYC Status' and Isactive='1'";
+                                        var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                        if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                        {
+                                            msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                            query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                            int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                        }
+                                    }
+                                
+                            }
+                            else if (VRKbl_KYC_StatusUser == "1")
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='1' and notiType='KYC' and KycCat='KYC Status' and Isactive='1'";
+                                var dtUserqueryAadharkyc = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkyc.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkyc.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='1' and notiType='KYC' and KycCat='KYC Status' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+
+                                }
+
+                            }
+                            else if (VRKbl_KYC_StatusUser == "2")
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='2' and notiType='KYC' and KycCat='KYC Status' and Isactive='1'";
+                                var dtUserqueryAadharkyc = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkyc.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkyc.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='2' and notiType='KYC' and KycCat='KYC Status' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+
+                                }
+
+                            }
+
+                        }
+                        if (AadharKycVendor == "Yes")
+                        {
+                            if (AadharkycStatusUser == "0" || AadharkycStatusUser == "" || AadharkycStatusUser == null)
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='0' and notiType='KYC' and KycCat='Aadhar' and Isactive='1'";
+                                var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='0' and notiType='KYC' and KycCat='Aadhar' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                }
+
+                            }
+                            else if (AadharkycStatusUser == "1")
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='1' and notiType='KYC' and KycCat='Aadhar' and Isactive='1'";
+                                var dtUserqueryAadharkyc = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkyc.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkyc.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='1' and notiType='KYC' and KycCat='Aadhar' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+
+                                }
+
+                            }
+                            else if (AadharkycStatusUser == "2")
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='2' and notiType='KYC' and KycCat='Aadhar' and Isactive='1'";
+                                var dtUserqueryAadharkyc = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkyc.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkyc.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='2' and notiType='KYC' and KycCat='Aadhar' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+
+                                }
+
+                            }
+
+                        }
+                        if (PANKycVendor == "Yes")
+                        {
+                            if (PanekycStatusUser == "0" || PanekycStatusUser == "" || PanekycStatusUser == null)
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='0' and notiType='KYC' and KycCat='PAN' and Isactive='1'";
+                                var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='0' and notiType='KYC' and KycCat='PAN' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                }
+
+                            }
+                            else if (PanekycStatusUser == "1")
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='1' and notiType='KYC' and KycCat='PAN' and Isactive='1'";
+                                var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='1' and notiType='KYC' and KycCat='PAN' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                }
+
+                            }
+                            else if (PanekycStatusUser == "2")
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='2' and notiType='KYC' and KycCat='PAN' and Isactive='1'";
+                                var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='2' and notiType='KYC' and KycCat='PAN' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                }
+                            }
+
+                        }
+                        if (AccountKycVendor == "Yes")
+                        {
+                            if (BankekycStatusUser == "0" || BankekycStatusUser == "" || BankekycStatusUser == null)
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='0' and notiType='KYC' and KycCat='Bank' and Isactive='1'";
+                                var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='0' and notiType='KYC' and KycCat='Bank' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                }
+
+                            }
+                            else if (BankekycStatusUser == "1")
+                            {
+                                if (BankekycStatusUser == "0")
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='1' and notiType='KYC' and KycCat='Bank' and Isactive='1'";
+                                    var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                    else
+                                    {
+                                        queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='1' and notiType='KYC' and KycCat='Bank' and Isactive='1'";
+                                        var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                        if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                        {
+                                            msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                            query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                            int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                        }
+                                    }
+
+                                }
+                            }
+                            else if (BankekycStatusUser == "2")
+                            {
+                                if (BankekycStatusUser == "0")
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='2' and notiType='KYC' and KycCat='Bank' and Isactive='1'";
+                                    var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                    else
+                                    {
+                                        queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='2' and notiType='KYC' and KycCat='Bank' and Isactive='1'";
+                                        var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                        if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                        {
+                                            msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                            query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                            int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                        }
+                                    }
+
+                                }
+
+                            }
+
+                        }
+                        if (UPIKycVendor == "Yes")
+                        {
+                            if (UPI_KYC_StatusUser == "0" || UPI_KYC_StatusUser == "" || UPI_KYC_StatusUser == null)
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='0' and notiType='KYC' and KycCat='UPI' and Isactive='1'";
+                                var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='0' and notiType='KYC' and KycCat='UPI' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                }
+
+                            }
+                            else if (UPI_KYC_StatusUser == "1")
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='1' and notiType='KYC' and KycCat='UPI' and Isactive='1'";
+                                var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='1' and notiType='KYC' and KycCat='UPI' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                }
+
+                            }
+                            else if (UPI_KYC_StatusUser == "2")
+                            {
+                                queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = '{consumer.Comp_id}' and status='2' and notiType='KYC' and KycCat='UPI' and Isactive='1'";
+                                var dtUserqueryAadharkycPending = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                if (dtUserqueryAadharkycPending.Rows.Count > 0)
+                                {
+                                    msgNotiTempID = dtUserqueryAadharkycPending.Rows[0]["ID"].ToString();
+                                    query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                    int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                }
+                                else
+                                {
+                                    queryNotifyEntryCheck = $"SELECT TOP 1 ID FROM Tbl_notificationmaster WHERE Comp_id = 'Default' and status='2' and notiType='KYC' and KycCat='UPI' and Isactive='1'";
+                                    var dtUserqueryAadharkycPendingelse = await _databaseManager.ExecuteDataTableAsync(queryNotifyEntryCheck);
+                                    if (dtUserqueryAadharkycPendingelse.Rows.Count > 0)
+                                    {
+                                        msgNotiTempID = dtUserqueryAadharkycPendingelse.Rows[0]["ID"].ToString();
+                                        query1NotiEntry = $"INSERT INTO Tbl_notificationUser (comp_id,m_consumerid,notificationmasterID,status,apiurl,created_at) VALUES ('" + consumer.Comp_id + "','" + consumer.M_Consumerid + "','" + msgNotiTempID + "','0','','" + expDate.ToString("yyyy-MM-dd HH:mm:ss") + "' )";
+                                        int count = await _databaseManager.ExecuteNonQueryAsync(query1NotiEntry);
+                                    }
+                                }
+
+                            }
+
+                        }
+                    }
+
+                    // close kyc notification-------------
+
+                    return Ok(new ApiResponse<object>(true, "Register Successfully", new
                     {
                         UserId = userId,
                         M_Consumerid = consumerId,

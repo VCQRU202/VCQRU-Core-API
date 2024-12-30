@@ -390,6 +390,42 @@ namespace CoreApi_BL_App.Services
             }
         }
 
+        public string VerifyUPIKYC(string UPIID, string URL, string baseUrl, string appId, string apiKey)
+        {
+            string Orderid = Guid.NewGuid().ToString().Replace("-","");
+            var options = new RestClientOptions(baseUrl)
+            {
+                MaxTimeout = -1,
+            };
+            var client = new RestClient(options);
+            var request = new RestRequest(URL, Method.Post);
+            request.AddHeader("app-id", appId);
+            request.AddHeader("api-key", apiKey);
+            request.AddHeader("Content-Type", "application/json");
+            var body = new
+            {
+                mode = "sync",
+                data = new
+                {
+                    customer_upi_id = UPIID,
+                    consent = "Y",
+                    consent_text = "I hear by declare my consent agreement for fetching my information via ZOOP API."
+                },
+                task_id = Orderid
+            };
+            var jsonBody = Newtonsoft.Json.JsonConvert.SerializeObject(body);
+            request.AddParameter("application/json", jsonBody, ParameterType.RequestBody);
+            try
+            {
+                RestResponse response = client.Execute(request);
+                return response.Content;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                throw;
+            }
+        }
         public string AccountNumber(string AccountNumber, string Ifsc, string URL, string baseUrl, string appId, string apiKey)
         {
             var options = new RestClientOptions(baseUrl)
@@ -778,22 +814,14 @@ namespace CoreApi_BL_App.Services
         {
             try
             {
-                // Define the base directory for logs (ensure the directory exists)
                 string basePath = Path.Combine(Directory.GetCurrentDirectory(), "LogManager");
-
-                // Ensure the directory exists
                 if (!Directory.Exists(basePath))
                 {
                     Directory.CreateDirectory(basePath);
                 }
-
-                // Define the log file path
-                string logFilePath = Path.Combine(basePath, "LogManager.txt");
-
-                // Format the log message
+                string currentDate = DateTime.Now.ToString("yyyy-MM-dd");
+                string logFilePath = Path.Combine(basePath, $"LogManager_{currentDate}.txt");
                 string logMessage = $"{DateTime.Now:yyyy/MM/dd hh:mm:ss tt} : {txt}\r\n";
-
-                // Write log message to the file in a thread-safe manner
                 lock (lockObject)
                 {
                     File.AppendAllText(logFilePath, logMessage);
@@ -801,10 +829,10 @@ namespace CoreApi_BL_App.Services
             }
             catch (Exception ex)
             {
-                // If logging fails, consider using another logging mechanism (e.g., EventLog, console, etc.)
                 Console.WriteLine($"Logging failed: {ex.Message}");
             }
         }
+
         public async Task<int> InsertProductInquiryAsync(Object9420 Reg)
         {
             var inputParameters = new Dictionary<string, object>
@@ -1561,6 +1589,50 @@ namespace CoreApi_BL_App.Services
             {
                 Console.WriteLine("Error: {ex.Message}");
                 throw;
+            }
+        }
+
+        public async Task<int> CreateTicketAsync(string description,string M_Consumerid,string Comp_id)
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+
+                var query = "INSERT INTO Tickets (Description, CreatedAt, Status,Comp_id,M_Consumerid) OUTPUT INSERTED.TicketId VALUES (@Description, @CreatedAt, @Status,@Comp_id,@M_Consumerid)";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@Description", description);
+                    command.Parameters.AddWithValue("@CreatedAt", DateTime.UtcNow);
+                    command.Parameters.AddWithValue("@Status", "Open"); 
+                    command.Parameters.AddWithValue("@Comp_id", M_Consumerid); 
+                    command.Parameters.AddWithValue("@M_Consumerid", Comp_id); 
+
+                    var ticketId = (int)await command.ExecuteScalarAsync();
+                    return ticketId;
+                }
+            }
+        }
+
+        // Save image paths associated with the ticket
+        public async Task SaveTicketImagesAsync(int ticketId, List<string> imagePaths)
+        {
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+
+                foreach (var path in imagePaths)
+                {
+                    var query = "INSERT INTO TicketImages (TicketId, ImagePath) VALUES (@TicketId, @ImagePath)";
+
+                    using (var command = new SqlCommand(query, connection))
+                    {
+                        command.Parameters.AddWithValue("@TicketId", ticketId);
+                        command.Parameters.AddWithValue("@ImagePath", path);
+
+                        await command.ExecuteNonQueryAsync();
+                    }
+                }
             }
         }
     }

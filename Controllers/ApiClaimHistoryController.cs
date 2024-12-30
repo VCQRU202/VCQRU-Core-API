@@ -43,7 +43,7 @@ namespace CoreApi_BL_App.Controllers
                             DataTable claimhistory = await _databaseManager.SelectTableDataAsync(
       "ClaimDetails as a, Claim_gift as b",
       "format(Claim_date,'dd MMM yyyy HH:mm tt') as Claim_date, a.Amount, a.Isapproved, a.Mobileno, a.vendor_comment as Message, b.Gift_name, b.Gift_value, b.Gift_desc, b.Gift_image, b.gift_id",
-      "a.Amount = b.Gift_value and a.Comp_id = b.CompID and a.Mobileno like '%" + dt.Rows[0]["mobileNo"] + "' and a.Comp_id = '" + req.Comp_ID + "' order by a.Row_id desc"
+      "a.Amount = b.Gift_point and a.Comp_id = b.CompID and a.Mobileno like '%" + dt.Rows[0]["mobileNo"] + "' and a.Comp_id = 'Comp-1436' order by a.Row_id desc"
   );
 
                             if (!claimhistory.Columns.Contains("gift_images"))

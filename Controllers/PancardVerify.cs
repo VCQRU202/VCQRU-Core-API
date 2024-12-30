@@ -64,7 +64,7 @@ namespace CoreApi_BL_App.Controllers
 
                 string Result = _databaseManager.VerifyPan(Req.Pancard,Req.PanHolderName, "api/v1/in/identity/pan/lite", "https://live.zoop.one/", "648d7d9a22658f001d0193ac", "W5Q2V99-JFC4D4D-QS0PG29-C6DNJYR");
                 var jOBJ = JObject.Parse(Result);
-
+                _databaseManager.ExceptionLogs("pan api response : "+ Result);
                 string NameMatchScore = "0.00";
 
                 var verifyKycDataDetail = new verifyKycDataDetail
@@ -77,6 +77,12 @@ namespace CoreApi_BL_App.Controllers
                     Status = false
                 };
 
+                if(verifyKycDataDetail.PanRemarks== "No Record Found")
+                {
+                    return BadRequest(new ApiResponse<object>(false, "Invalid pan card number", null));
+                }
+
+
                 if (jOBJ["success"]?.ToString() == "True" && jOBJ["result"]?["pan_status"]?.ToString() == "VALID")
                 {
                     verifyKycDataDetail.PanRefrenceId = jOBJ["request_id"]?.ToString();
@@ -86,11 +92,16 @@ namespace CoreApi_BL_App.Controllers
                     verifyKycDataDetail.IspanVerify = true;
                 }
 
+                if (Convert.ToDecimal( jOBJ["result"]?["name_match_score"]) < 70)
+                {
+                    return BadRequest(new ApiResponse<object>(false, "Input name is not matched with your pan number"));
+                }
+
                 string queryinsert = @"
             INSERT INTO tblKycPanDataDetails
-            (M_Consumerid, PanName, PanRefrenceId, PanReqdate, PanRemarks, ResponseCode, NameMatchScore, IspanVerify, Status,dateofbirth,pancardNumber)
+            (M_Consumerid, PanName, PanRefrenceId, PanReqdate, PanRemarks, ResponseCode, NameMatchScore, IspanVerify, Status,pancardNumber,InputPanName)
             VALUES
-            (@M_Consumerid, @PanName, @PanRefrenceId, @PanReqdate, @PanRemarks, @ResponseCode, @NameMatchScore, @IspanVerify, @Status,@dateofbirth,@pancardNumber)";
+            (@M_Consumerid, @PanName, @PanRefrenceId, @PanReqdate, @PanRemarks, @ResponseCode, @NameMatchScore, @IspanVerify, @Status,@pancardNumber,@Inputpanname)";
 
                 var parameters = new Dictionary<string, object>
                     {
@@ -103,7 +114,8 @@ namespace CoreApi_BL_App.Controllers
                         { "@NameMatchScore", NameMatchScore },
                         { "@IspanVerify", verifyKycDataDetail.IspanVerify },
                         { "@Status", verifyKycDataDetail.Status },
-                        { "@dateofbirth", Req.Dateofbirth },
+                       // { "@dateofbirth", Req.Dateofbirth },
+                        { "@Inputpanname", Req.PanHolderName },
                         { "@pancardNumber", Req.Pancard }
                     };
 
@@ -125,10 +137,11 @@ namespace CoreApi_BL_App.Controllers
 
                 if (rowsAffected > 0)
                 {
-                    string queryinsert1 = $"update M_Consumer set panekycStatus ='Online' where M_Consumerid=@M_Consumerid";
+                    string queryinsert1 = $"update M_Consumer set panekycStatus ='Online',ConsumerName=@consumername where M_Consumerid=@M_Consumerid";
                    var parameters1 = new Dictionary<string, object>
                     {
                         { "@M_Consumerid", verifyKycDataDetail.M_Consumerid },
+                        { "@consumername", verifyKycDataDetail.PanName },
                         { "@Status", verifyKycDataDetail.Status }
                     };
                     if (verifyKycDataDetail.Status == false)
@@ -161,6 +174,6 @@ namespace CoreApi_BL_App.Controllers
         public string Pancard { get; set; }
         public string PanHolderName { get; set; }
         public string M_Consumerid { get; set; }
-        public string Dateofbirth { get; set; }
+       
     }
 }

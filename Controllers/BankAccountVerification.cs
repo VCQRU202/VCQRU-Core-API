@@ -39,7 +39,7 @@ namespace CoreApi_BL_App.Controllers
                 Log.Account_HolderNm = "";
                 Log.DML = "I";
                 Log.Bank_ID = "";
-                Log.Bank_Name = "";
+                Log.Bank_Name = Req.BankName;
                 Log.Account_HolderNm = "";
                 Log.Branch = "";
                 Log.City = "";
@@ -97,7 +97,7 @@ namespace CoreApi_BL_App.Controllers
                     Log.DML = "U";
                     Log.Account_HolderNm = dtcon5.Rows[0]["Account_HolderNm"].ToString();
                     Log.Bank_ID = dtcon5.Rows[0]["Bank_ID"].ToString();
-                    Log.Bank_Name = dtcon5.Rows[0]["Bank_Name"].ToString();
+                    Log.Bank_Name = string.IsNullOrEmpty(dtcon5.Rows[0]["Bank_Name"].ToString()) ? Log.Bank_Name : dtcon5.Rows[0]["Bank_Name"].ToString();
                     Log.Branch = dtcon5.Rows[0]["Branch"].ToString();
                     Log.City = dtcon5.Rows[0]["City"].ToString();
                     Log.RTGS_Code = dtcon5.Rows[0]["RTGS_Code"].ToString();
@@ -241,7 +241,8 @@ namespace CoreApi_BL_App.Controllers
                         }
                         else
                         {
-                            string Updatequery = $"Update M_consumer set bankekycStatus='{kycMode}' where M_Consumerid='{Req.M_Consumerid}'";
+                            string Updatequery = $"Update M_consumer set bankekycStatus='Online' where M_Consumerid='{Req.M_Consumerid}'";
+                            await _databaseManager.ExecuteNonQueryAsync(Updatequery);
                             Dictionary<string, object> inputParameters = new Dictionary<string, object>
                         {
                         { "@Bank_ID", Log.Bank_ID },
@@ -304,7 +305,8 @@ namespace CoreApi_BL_App.Controllers
                         string querydata1 = $"select top 1 [M_Consumerid] from tblKycBankDataDetails where [M_Consumerid]='{Req.M_Consumerid}' order by  [M_Consumerid] Desc";
                         var dt3 = await _databaseManager.ExecuteDataTableAsync(querydata1);
 
-
+                        string Updatequery = $"Update M_consumer set bankekycStatus='Online' where M_Consumerid='{Req.M_Consumerid}'";
+                        await _databaseManager.ExecuteNonQueryAsync(Updatequery);
 
                         if (dt3.Rows.Count > 0)
                         {
@@ -380,6 +382,7 @@ namespace CoreApi_BL_App.Controllers
         public string IFSCCode { get; set; }
         public string M_Consumerid { get; set; }
         public string UserNameForValidatePan { get; set; }
+        public string BankName { get; set; }
     }
 
     public class verifyKycDataDetail

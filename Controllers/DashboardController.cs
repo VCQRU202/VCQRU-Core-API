@@ -67,6 +67,7 @@ namespace CoreApi_BL_App.Controllers
         }
 
         private async Task<Query_responses> GetDashboardData(string consumerId, string compId, string mobileNo)
+        
         {
             var query = new Query_responses();
             var claimAmount = await GetClaimAmount(mobileNo, compId);
@@ -89,7 +90,7 @@ namespace CoreApi_BL_App.Controllers
                 SELECT COALESCE(SUM(cl.Amount), 0) AS Amount
                 FROM ClaimDetails cl
                 INNER JOIN M_consumer mc ON RIGHT(mc.MobileNo, 10) = RIGHT(cl.Mobileno, 10)
-                WHERE mc.MobileNo = @MobileNo AND mc.IsDelete = 0 AND cl.Isapproved = 1 AND cl.Comp_id = @CompID";
+                WHERE right(mc.MobileNo,10) = @MobileNo AND mc.IsDelete = 0 AND cl.Isapproved = 1 AND cl.Comp_id = @CompID";
             var parameters = new Dictionary<string, object> { { "@MobileNo", mobileNo }, { "@CompID", compId } };
             var dt = await _databaseManager.ExecuteDataTableAsync(query, parameters);
             return dt.Rows.Count > 0 ? Convert.ToInt32(dt.Rows[0]["Amount"]) : 0;

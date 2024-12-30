@@ -28,6 +28,17 @@ namespace CoreApi_BL_App.Controllers
                 return BadRequest(new ApiResponse<object>(false, "Request data is null."));
             try
             {
+                string giftpointforclaim="0";
+                string giftquery = $"select Gift_point from Claim_gift where gift_id='{req.ProductId}' and status=1 and Isdelete=0 and CompID='{req.Comp_ID}'";
+                var giftdata = await _databaseManager.ExecuteDataTableAsync(giftquery);
+                if (giftdata.Rows.Count > 0)
+                {
+                    giftpointforclaim= giftdata.Rows[0]["Gift_point"].ToString()??"0";
+                }
+                else
+                {
+                    return BadRequest(new ApiResponse<object>(false, "Invalid gift details."));
+                }
                 string Comp_ID = "NA";
                 string m_consumerid = "";
                 string UPIId = string.Empty;
@@ -117,7 +128,7 @@ namespace CoreApi_BL_App.Controllers
 
                                         if (dt.Rows[0]["VRKbl_KYC_status"].ToString() == "0" || dt.Rows[0]["VRKbl_KYC_status"].ToString() == "" || dt.Rows[0]["VRKbl_KYC_status"].ToString() == null)
                                         {
-                                            return BadRequest(new ApiResponse<object>(false, "Your KYC is pending approval. Please wait for confirmation."));
+                                            return BadRequest(new ApiResponse<object>(false, "Please wait for your KYC approval to claim the benefits."));
                                         }
                                         if (dt.Rows[0]["VRKbl_KYC_status"].ToString() == "" || dt.Rows[0]["VRKbl_KYC_status"].ToString() == null)
                                         {
@@ -189,8 +200,9 @@ namespace CoreApi_BL_App.Controllers
                                     UPIclaimapply = Convert.ToInt32(UPIdt.Rows[0][0].ToString());
                             }
                             Claimpointuser = (Convert.ToInt32(Claimpointuser) + UPIclaimapply).ToString();
-                            #endregion                            
-                            dtcondition = await _databaseManager.SelectTableDataAsync("point_redeem_condition", "top 1 codition_point,condition_match", "comp_id='" + dtcp.Rows[0]["Comp_ID"].ToString() + "' and isactive=1 and selection_id=case when (select count(*) from paytmtransaction where m_consumerid='" + dt.Rows[0][1].ToString() + "' and pstatus='SUCCESS' and comp_id='Comp-1283')>0 then 2 else 1 end ");
+                        #endregion
+                        string qrycondition = $"select top 1 codition_point,condition_match from point_redeem_condition where  comp_id='{req.Comp_ID}' and isactive=1 ";
+                            dtcondition = await _databaseManager.ExecuteDataTableAsync(qrycondition);
 
                             if (dtcondition.Rows.Count > 0) // Live                                                                                                                                                                                                                                                                                                                        
                             {
@@ -210,7 +222,10 @@ namespace CoreApi_BL_App.Controllers
                                 }
                             }
 
-                            int ptforrd = Convert.ToInt32(req.Productvalue);
+
+
+
+                            int ptforrd = Convert.ToInt32(giftpointforclaim);
                             DataTable dtcondition1 = await _databaseManager.SelectTableDataAsync("[ClaimDetails] left join M_Consumer on right(M_Consumer.MobileNo, 10) = right([ClaimDetails].Mobileno, 10)", "COALESCE(SUM(ClaimDetails.Amount), 0) AS TotalAmount", "M_Consumer.M_Consumerid = '" + req.M_Consumerid + "' and[Isapproved] = 0");
                             int giftValue = Convert.ToInt32(req.Productvalue);
                             if (ptforrd >= Convert.ToInt32(dtcondition.Rows[0]["codition_point"].ToString()))
@@ -218,7 +233,7 @@ namespace CoreApi_BL_App.Controllers
 
                                 if (Convert.ToInt32(dtcondition1.Rows[0][0]) > 0)
                                 {
-                                    return BadRequest(new ApiResponse<object>(false, "Your previous claim with " + dtcondition1.Rows[0][0].ToString() + " points is awaiting approval. Please wait for confirmation."));
+                                    return BadRequest(new ApiResponse<object>(false, "Your previous claim with " + req.Productvalue + " points is awaiting approval. Please wait for confirmation."));
                                 }
                                 else {
 
@@ -239,7 +254,8 @@ namespace CoreApi_BL_App.Controllers
                                         for (int i = 0; i < gifttable.Rows.Count; i++)
                                         {
                                             gifttable.Rows[i]["Gift_name"].ToString();
-                                            gifttable.Rows[i]["RedeemPoint"] = ptforrd.ToString();
+                                           // gifttable.Rows[i]["RedeemPoint"] = ptforrd.ToString();
+                                            gifttable.Rows[i]["RedeemPoint"] = req.Productvalue;
                                             gifttable.Rows[i]["AvailablePoint"] = Avlaible_Point;
                                             gifttable.Rows[i]["ClaimType"] = "Gift Claim";
                                             gifttable.Rows[i]["ClaimDate"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
@@ -263,7 +279,7 @@ namespace CoreApi_BL_App.Controllers
                                         //        column => row[column] // Return column value
                                         //    );
                                         //});
-                                        return Ok(new ApiResponse<object>(true, "Your Request Registered with US for points " + ptforrd, data));
+                                        return Ok(new ApiResponse<object>(true, "Your Request Registered with US for points " + req.Productvalue, data));
                                     }
                                     else
                                     {
