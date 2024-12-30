@@ -11,7 +11,7 @@ var handler = new HttpClientHandler();
 
 
 // Allowing all certificates in case of self-signed certificates (for development only)
-=======
+
 // Use caution when accepting any server certificate in production environments
 
 handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
@@ -27,7 +27,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<DatabaseManager>(sp =>
     new DatabaseManager(builder.Configuration.GetConnectionString("defaultConnectionbeta"))
 );
-=======
+
 // Register DatabaseManager as a singleton service with the connection string
 builder.Services.AddSingleton<DatabaseManager>(sp =>
     new DatabaseManager(builder.Configuration.GetConnectionString("defaultConnectionbeta")));
@@ -43,7 +43,7 @@ if (!Directory.Exists(logDir))
 // Clear default logging providers and use NLog
 builder.Logging.ClearProviders();
 builder.Host.UseNLog();
-=======
+
 // Set up NLog for ASP.NET Core
 builder.Logging.ClearProviders(); // Remove default logging providers
 builder.Host.UseNLog(); // Use NLog as the logging provider
@@ -54,7 +54,7 @@ builder.Services.AddControllers();
 
 
 // Configure CORS
-=======
+
 // Set up CORS policy for specific origins or a broader policy
 
 builder.Services.AddCors(options =>
@@ -72,7 +72,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-=======
+
 // Enable Swagger for API documentation (only in development)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -108,7 +108,7 @@ app.UseAuthorization();
 // Map controllers (routes for API)
 app.MapControllers();
 
-=======
+
 // Use the CORS policy defined earlier
 app.UseCors("AllowAll");
 
