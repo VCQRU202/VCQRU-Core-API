@@ -1,12 +1,12 @@
-﻿using CoreApi_BL_App.Services;
-using Microsoft.AspNetCore.Http;
+using CoreApi_BL_App.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace CoreApi_BL_App.Controllers
@@ -29,7 +29,7 @@ namespace CoreApi_BL_App.Controllers
         {
             if (req == null || string.IsNullOrWhiteSpace(req.Comp_ID))
             {
-                return BadRequest(new ApiResponse<object>(false, "Invalid request data."));
+                return BadRequest(new ApiResponseVendorSetting<object>(false, "Invalid request data."));
             }
 
             try
@@ -46,40 +46,51 @@ namespace CoreApi_BL_App.Controllers
                     ORDER BY [Comp_ID] DESC";
 
                 DataTable dt = await _databaseManager.ExecuteDataTableAsync(query);
-                JArray compDataArray;
+
                 if (dt.Rows.Count > 0)
                 {
-                    
+                    // Parse JSON fields and handle potential null or empty values
                     string compDataString = dt.Rows[0]["CompData"].ToString();
-                    var compData = string.IsNullOrEmpty(compDataString) ? new Dictionary<string, object>() : JObject.Parse(compDataString).ToObject<Dictionary<string, object>>();
+                    var compData = string.IsNullOrEmpty(compDataString) ? new JObject() : JObject.Parse(compDataString);
 
                     string registrationFieldsString = dt.Rows[0]["RegistrationFields"].ToString();
-                    var registrationFields = string.IsNullOrEmpty(registrationFieldsString) ? new List<Dictionary<string, object>>() : JArray.Parse(registrationFieldsString).ToObject<List<Dictionary<string, object>>>();
+                    var registrationFields = string.IsNullOrEmpty(registrationFieldsString) ? new JArray() : JArray.Parse(registrationFieldsString);
+
+                    // Normalize "Values" field in registrationFields
+                    foreach (var field in registrationFields)
+                    {
+                        if (field["Values"] == null || field["Values"].Type != JTokenType.Array)
+                        {
+                            field["Values"] = new JArray();
+                        }
+                        else if (field["Values"].Type == JTokenType.String)
+                        {
+                            string[] valuesArray = field["Values"].ToString().Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                            field["Values"] = JArray.FromObject(valuesArray);
+                        }
+                    }
 
                     string kycDetailsString = dt.Rows[0]["kyc_Details"].ToString();
-                    var kycDetails = string.IsNullOrEmpty(kycDetailsString) ? new Dictionary<string, object>() : JObject.Parse(kycDetailsString).ToObject<Dictionary<string, object>>();
+                    var kycDetails = string.IsNullOrEmpty(kycDetailsString) ? new JObject() : JObject.Parse(kycDetailsString);
 
                     string claimSettingsString = dt.Rows[0]["Claim_Settings"].ToString();
-                    var claimSettings = string.IsNullOrEmpty(claimSettingsString) ? new Dictionary<string, object>() : JObject.Parse(claimSettingsString).ToObject<Dictionary<string, object>>();
+                    var claimSettings = string.IsNullOrEmpty(claimSettingsString) ? new JObject() : JObject.Parse(claimSettingsString);
 
-                    // Combine parsed data into a single list of rows
-                    var rows = new List<Dictionary<string, object>>
+                    // Combine parsed data into a response object
+                    var responseData = new
                     {
-                        new Dictionary<string, object>
-                        {
-                            { "CompData", compData },
-                            { "RegistrationFields", registrationFields },
-                            { "KycDetails", kycDetails },
-                            { "ClaimSettings", claimSettings }
-                        }
+                        CompData = compData,
+                        RegistrationFields = registrationFields,
+                        KycDetails = kycDetails,
+                        ClaimSettings = claimSettings
                     };
 
-                    // Return the transformed data
-                    return Ok(new ApiResponse<object>(true, "Successfully", rows));
+                    _logger.LogInformation("VendorAppSetting data retrieved successfully: {ResponseData}", JsonConvert.SerializeObject(responseData));
+                    return Ok(new ApiResponseVendorSetting<object>(true, "Data retrieved successfully.", responseData));
                 }
                 else
                 {
-                    return BadRequest(new ApiResponseVendorSetting<object>(false, "No records found for the given Comp_ID."));
+                    return NotFound(new ApiResponseVendorSetting<object>(false, "No records found for the given Comp_ID."));
                 }
             }
             catch (Exception ex)
@@ -95,7 +106,9 @@ namespace CoreApi_BL_App.Controllers
     {
         public string Comp_ID { get; set; }
     }
-      public class ApiResponseVendorSetting<T>
+
+    // Response Wrapper
+    public class ApiResponseVendorSetting<T>
     {
         public bool Success { get; set; }
         public string Message { get; set; }
@@ -108,6 +121,4 @@ namespace CoreApi_BL_App.Controllers
             Data = data;
         }
     }
-
- 
 }

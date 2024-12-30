@@ -1,4 +1,4 @@
-﻿using CoreApi_BL_App.Models;
+using CoreApi_BL_App.Models;
 using CoreApi_BL_App.Models.Vendor;
 using Microsoft.Data.SqlClient;
 using Newtonsoft.Json;
@@ -8,14 +8,17 @@ using System.Data;
 using System.Net;
 using System.Text;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
-
-
+using Microsoft.Data.SqlClient;
+using RestSharp;
+using System.Data;
 namespace CoreApi_BL_App.Services
 {
     public class DatabaseManager
     {
         private readonly string _connectionString;
+
         private static readonly object lockObject = new object();
+
 
         public DatabaseManager(string connectionString)
         {
@@ -461,6 +464,7 @@ namespace CoreApi_BL_App.Services
                 throw;
             }
         }
+
         public async Task<DataTable> SelectTableDataAsync(string tableName, string selectClause, string whereClause)
         {
             DataTable dataTable = new DataTable();
@@ -574,6 +578,7 @@ namespace CoreApi_BL_App.Services
                 return 0;
             }
         }
+
 
         public async Task<object> ExecuteStoredProcedureScalarAsync(string storedProcedureName, Dictionary<string, object> parameters)
         {
@@ -736,6 +741,9 @@ namespace CoreApi_BL_App.Services
 
 
         public string validateotpAadhar(string Request_Id, string otp, string URL, string baseUrl, string appId, string apiKey)
+
+        public string validateotpAadhar(string Request_Id,string otp, string URL, string baseUrl, string appId, string apiKey)
+
         {
             var options = new RestClientOptions(baseUrl)
             {
@@ -770,6 +778,7 @@ namespace CoreApi_BL_App.Services
                 throw;
             }
         }
+
 
         public string SendOTPLogin(string sPhoneNo, string sMessage, string msg_type, string compname = "", string smsURL = "")
         {

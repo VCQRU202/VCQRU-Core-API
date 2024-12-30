@@ -1,14 +1,9 @@
-﻿using Azure;
-using CoreApi_BL_App.Models;
+﻿using CoreApi_BL_App.Models;
 using CoreApi_BL_App.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
-using RestSharp;
 using System.Data;
-using System.Net;
-using System.Reflection;
-using static System.Net.WebRequestMethods;
+using System.Threading.Tasks;
 
 namespace CoreApi_BL_App.Controllers
 {
@@ -30,18 +25,14 @@ namespace CoreApi_BL_App.Controllers
             string AadharName;
             if (req == null)
                 return BadRequest(new ApiResponse<object>(false, "Request data is null."));
+
             try
             {
-                
-
+                // Validate Aadhar Number
                 if (string.IsNullOrEmpty(req.AadharNo) || req.AadharNo.Length < 12)
-                {
-                    return BadRequest(new ApiResponse<object>(false, "Please enter a valid aadharNo number."));
-                }
-                string UserNameForValidatePan = "";
-                string kycMode = "Offline";
+                    return BadRequest(new ApiResponse<object>(false, "Please enter a valid Aadhar number."));
 
-
+                // Validate Consumer ID
                 if (!int.TryParse(req.M_Consumerid, out int M_Consumerid))
                     return BadRequest(new ApiResponse<object>(false, "Invalid consumer ID."));
                 DataTable dt = new DataTable();
@@ -137,85 +128,22 @@ namespace CoreApi_BL_App.Controllers
                 }
                 if (statusCode == "108" || statusCode == "109" || statusCode == "110" || statusCode == "111")
                 {
-                    return BadRequest(new ApiResponse<object>(false, "Server Down!"));
+                    return BadRequest(new ApiResponse<object>(false, responseMessage ?? "Error occurred while validating OTP."));
                 }
-                if (statusCode == "99")
-                {
-                    return BadRequest(new ApiResponse<object>(false, "Unknown Error!"));
-                }
-                if (statusCode == "113")
-                {
-                    return BadRequest(new ApiResponse<object>(false, "Something went wrong, Please contact to service provider!"));
-                }
-                if (statusCode == "114")
-                {
-                    return BadRequest(new ApiResponse<object>(false, "Invalid OTP!."));
-                }
-                if (jOBJ["response_code"].ToString() == "112")
-                {
-                    await _databaseManager.DeleteAsync("M_Consumerid='" + M_Consumerid.ToString() + "' ", "tblKycPanDataDetails");
-                    return BadRequest(new ApiResponse<object>(false, "Please wait and try some time later"));
-                   
-                }
-               
-                if (jOBJ["success"].ToString() == "True")
+
+                // Handle successful OTP validation
+                if (responseObj["success"]?.ToString() == "True")
                 {
                     kycMode = "Online";
                     verifyKycDataDetail.AadharRefrenceId = jOBJ["request_id"]?.ToString();
                     verifyKycDataDetail.AadharRemarks = jOBJ["response_message"]?.ToString();
                     verifyKycDataDetail.ResponseCode = jOBJ["ResponseCode"]?.ToString();
                     verifyKycDataDetail.AadharName = jOBJ["result"]["user_full_name"].ToString();
-                     AadharName = verifyKycDataDetail.AadharName;
+                    string AadharName = verifyKycDataDetail.AadharName;
                     AadharName = AadharName.ToUpper();
                     string MPanName = UserNameForValidatePan.ToUpper();
                     verifyKycDataDetail.Status = true;
                     verifyKycDataDetail.IsaadharVerify = true;
-
-                    #region Validattion process 
-                    string consumerqry = $"select*from m_Consumer where M_Consumerid='{req.M_Consumerid}' and IsDelete=0";
-                    var Consumerdata = await _databaseManager.ExecuteDataTableAsync(consumerqry);
-                    if (Consumerdata.Rows.Count > 0)
-                    {
-                         dbConsumername= Consumerdata.Rows[0]["ConsumerName"].ToString() ;
-                    }
-                    else
-                    {
-                        return BadRequest(new ApiResponse<object>(false, "Invalid User Details."));
-                    }
-
-
-                    string dataqry = $"select kyc_details from brandsettings where comp_id='{req.Comp_id}'";
-                    var resultdt =await _databaseManager.ExecuteDataTableAsync(dataqry);
-                    if (resultdt.Rows.Count > 0)
-                    {
-                        var jdata = JObject.Parse(resultdt.Rows[0][0].ToString());
-                        string isaadharenable = jdata["AadharCard"].ToString();
-                        string ispanenable = jdata["PANCard"].ToString();
-                        string isAccountenable = jdata["AccountDetails"].ToString();
-                        string isUPIenable = jdata["UPI"].ToString();
-                        if(ispanenable== "Yes")
-                        {
-                            //dbConsumername = AadharName;
-                            double matchPercentage = GetLevenshteinMatchPercentage(dbConsumername, AadharName);
-
-                            if (matchPercentage < 70)
-                            {
-                                return BadRequest(new ApiResponse<object>(false, "Aadhaar does not match the registered name. Please verify and try again."));
-                            }
-                        }
-                        else if(ispanenable== "No")
-                        {
-                            string updatequery = $"update M_Consumer set ConsumerName='{AadharName}' where M_Consumerid='{req.M_Consumerid}'";
-                            await _databaseManager.ExecuteNonQueryAsync(updatequery);
-                        }
-                        else if (string.IsNullOrEmpty(ispanenable) && isaadharenable=="Yes")
-                        {
-                            string updatequery = $"update M_Consumer set ConsumerName='{AadharName}' where M_Consumerid='{req.M_Consumerid}'";
-                            await _databaseManager.ExecuteNonQueryAsync(updatequery);
-                        }
-
-                    }
-                    #endregion
 
                     await _databaseManager.UpdateAsync("aadharkycStatus='" + kycMode + "',aadharNumber='" + req.AadharNo + "',AadharHolderName= '" + jOBJ["result"]["user_full_name"].ToString() + "' ", "M_Consumerid='" + M_Consumerid.ToString() + "' ", "M_Consumer");
                     //int a = await _databaseManager.InsertAsync("KycMode,M_Consumerid,AadharNo,AadharName,AadharRefrenceId,AadharReqdate,AadharRemarks,ResponseCode,IsaadharVerify", " '" + kycMode + "', '" + M_Consumerid.ToString() + "','" + req.AadharNo + "','" + verifyKycDataDetail.AadharName + "','" + verifyKycDataDetail.AadharRefrenceId + "', '" + System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + verifyKycDataDetail.AadharRemarks + "','" + verifyKycDataDetail.ResponseCode + "', '" + verifyKycDataDetail.IsaadharVerify + "'", "tblKycAadharDataDetailsHistry");
@@ -245,16 +173,16 @@ namespace CoreApi_BL_App.Controllers
                     {
                         return BadRequest(new ApiResponse<object>(false, "Record not inserted!."));
                     }
+
+
                 }
                 else
                 {
-                    return BadRequest(new ApiResponse<object>(false, jOBJ["response_message"]?.ToString())) ;
+                    return BadRequest(new ApiResponse<object>(false, "Failed to verify KYC. Please try again."));
                 }
-
             }
             catch (Exception ex)
             {
-                _databaseManager.ExceptionLogs("Find Error in Validate OTP for aadhar kyc API :" + ex.Message + "  ,Track and Trace :" + ex.StackTrace);
                 return StatusCode(500, new ApiResponse<object>(false, $"Error occurred while validating OTP: {ex.Message}"));
             }
         }
@@ -302,22 +230,4 @@ namespace CoreApi_BL_App.Controllers
         public string Otp { get; set; }
         public string Comp_id { get; set; }
     }
-  
-   
-
-    //public class ApiResponse<T>
-    //{
-    //    public bool Success { get; set; }
-    //    public string Message { get; set; }
-    //    public T Data { get; set; }
-
-    //    public ApiResponse(bool success, string message, T data = default)
-    //    {
-    //        Success = success;
-    //        Message = message;
-    //        Data = data;
-    //    }
-    //}
-
-
 }

@@ -1,4 +1,4 @@
-﻿using CoreApi_BL_App.Models.Vendor;
+using CoreApi_BL_App.Models.Vendor;
 using CoreApi_BL_App.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -892,5 +892,149 @@ namespace CoreApi_BL_App.Controllers.Vendor
                 return StatusCode(500, new ApiResponse<object>(false, $"Internal Server Error: {ex.Message}"));
             }
         }
+
+
+        private SqlParameter CreateSqlParameter(string paramName, object value)
+        {
+            if (value == null)
+                return new SqlParameter(paramName, DBNull.Value);
+
+            // Explicitly check if value is numeric
+            if (value is int)
+                return new SqlParameter(paramName, SqlDbType.Int) { Value = value };
+            else if (value is decimal)
+                return new SqlParameter(paramName, SqlDbType.Decimal) { Value = value };
+            else if (value is long)
+                return new SqlParameter(paramName, SqlDbType.BigInt) { Value = value };
+            else if (value is double)
+                return new SqlParameter(paramName, SqlDbType.Float) { Value = value };
+            else if (value is string)
+                return new SqlParameter(paramName, SqlDbType.NVarChar) { Value = value };
+            else if (value is DateTime)
+                return new SqlParameter(paramName, SqlDbType.DateTime) { Value = value };
+
+            return new SqlParameter(paramName, value);
+        }
+
+
+        [HttpGet("Registration/{M_Consumerid}")]
+        public async Task<IActionResult> GetConsumer(int consumerId)
+        {
+            // SQL connection string
+            var connectionString = _configuration.GetConnectionString("defaultConnectionbeta");
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                // SQL query to fetch consumer by Consumerid
+                var query = "SELECT * FROM Consumers WHERE M_Consumerid = @M_Consumerid";
+
+                using (var command = new SqlCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@M_Consumerid", consumerId);
+
+                    try
+                    {
+                        var reader = await command.ExecuteReaderAsync();
+                        if (await reader.ReadAsync())
+                        {
+                            var consumer = new Consumer
+                            {
+                                M_Consumerid = reader.GetInt32(reader.GetOrdinal("M_Consumerid")),
+                                User_ID = reader.GetString(reader.GetOrdinal("User_ID")),
+                                ConsumerName = reader.GetString(reader.GetOrdinal("ConsumerName")),
+                                Email = reader.GetString(reader.GetOrdinal("Email")),
+                                Mobile = reader.GetString(reader.GetOrdinal("MobileNo")),
+                                City = reader.GetString(reader.GetOrdinal("City")),
+                                PinCode = reader.GetString(reader.GetOrdinal("PinCode")),
+                                Password = reader.GetString(reader.GetOrdinal("Password")),
+                                Entry_Date = reader.GetDateTime(reader.GetOrdinal("Entry_Date")),
+                                IsActive = reader.GetInt32(reader.GetOrdinal("IsActive")),
+                                IsDelete = reader.GetInt32(reader.GetOrdinal("IsDelete")),
+                                Address = reader.GetString(reader.GetOrdinal("Address")),
+                                Per_Address = reader.GetString(reader.GetOrdinal("Per_Address")),
+                                ReferralCode = reader.GetInt32(reader.GetOrdinal("ReferralCode")),
+                                IsSharedReferralCode = reader.GetBoolean(reader.GetOrdinal("IsSharedReferralCode")),
+                                employeeID = reader.GetString(reader.GetOrdinal("employeeID")),
+                                distributorID = reader.GetString(reader.GetOrdinal("distributorID")),
+                                aadharNumber = reader.GetString(reader.GetOrdinal("aadharNumber")),
+                                aadharFile = reader.GetString(reader.GetOrdinal("aadharFile")),
+                                aadharback = reader.GetString(reader.GetOrdinal("aadharback")),
+                                aadharUploadedate = reader.GetDateTime(reader.GetOrdinal("aadharUploadedate")),
+                                aadharUploadedBy = reader.GetString(reader.GetOrdinal("aadharUploadedBy")),
+                                Aadhar_source = reader.GetString(reader.GetOrdinal("Aadhar_source")),
+                                village = reader.GetString(reader.GetOrdinal("village")),
+                                district = reader.GetString(reader.GetOrdinal("district")),
+                                state = reader.GetString(reader.GetOrdinal("state")),
+                                country = reader.GetString(reader.GetOrdinal("country")),
+                                Role_Id = reader.GetInt32(reader.GetOrdinal("Role_Id")),
+                                Created_by = reader.GetInt32(reader.GetOrdinal("Created_by")),
+                                Comp_id = reader.GetString(reader.GetOrdinal("Comp_id")),
+                                SellerName = reader.GetString(reader.GetOrdinal("SellerName")),
+                                token = reader.GetString(reader.GetOrdinal("token")),
+                                MStarId = reader.GetInt32(reader.GetOrdinal("MStarId")),
+                                Inox_User_Type = reader.GetString(reader.GetOrdinal("Inox_User_Type")),
+                                Vrkabel_User_Type = reader.GetInt32(reader.GetOrdinal("Vrkabel_User_Type")),
+                                cin_number = reader.GetString(reader.GetOrdinal("cin_number")),
+                                ref_cin_number = reader.GetString(reader.GetOrdinal("ref_cin_number")),
+                                designation = reader.GetString(reader.GetOrdinal("designation")),
+                                dob = reader.GetString(reader.GetOrdinal("dob")),
+                                gender = reader.GetString(reader.GetOrdinal("gender")),
+                                sur_name = reader.GetString(reader.GetOrdinal("sur_name")),
+                                communication_status = reader.GetInt32(reader.GetOrdinal("communication_status")),
+                                business_status = reader.GetInt32(reader.GetOrdinal("business_status")),
+                                house_number = reader.GetString(reader.GetOrdinal("house_number")),
+                                land_mark = reader.GetString(reader.GetOrdinal("land_mark")),
+                                owner_number = reader.GetString(reader.GetOrdinal("owner_number")),
+                                shop_name = reader.GetString(reader.GetOrdinal("shop_name")),
+                                pancard_number = reader.GetString(reader.GetOrdinal("pancard_number")),
+                                gst_number = reader.GetString(reader.GetOrdinal("gst_number")),
+                                pan_card_file = reader.GetString(reader.GetOrdinal("pan_card_file")),
+                                shop_file = reader.GetString(reader.GetOrdinal("shop_file")),
+                                Other_Role = reader.GetString(reader.GetOrdinal("Other_Role")),
+                                profile_image = reader.GetString(reader.GetOrdinal("profile_image")),
+                                VRKbl_KYC_status = reader.GetInt32(reader.GetOrdinal("VRKbl_KYC_status")),
+                                Additional = reader.GetString(reader.GetOrdinal("Additional")),
+                                remark = reader.GetString(reader.GetOrdinal("remark")),
+                                panekycStatus = reader.GetString(reader.GetOrdinal("panekycStatus")),
+                                aadharkycStatus = reader.GetString(reader.GetOrdinal("aadharkycStatus")),
+                                bankekycStatus = reader.GetString(reader.GetOrdinal("bankekycStatus")),
+                                PanHolderName = reader.GetString(reader.GetOrdinal("PanHolderName")),
+                                AadharHolderName = reader.GetString(reader.GetOrdinal("AadharHolderName")),
+                                Shop_address = reader.GetString(reader.GetOrdinal("Shop_address")),
+                                FirmName = reader.GetString(reader.GetOrdinal("FirmName")),
+                                Apptoken = reader.GetString(reader.GetOrdinal("Apptoken")),
+                                AppVersion = reader.GetString(reader.GetOrdinal("AppVersion")),
+                                Agegroup = reader.GetString(reader.GetOrdinal("Agegroup")),
+                                Pancard_Status = reader.GetString(reader.GetOrdinal("Pancard_Status")),
+                                BrandId = reader.GetInt32(reader.GetOrdinal("BrandId")),
+                                Aadhar_Status = reader.GetString(reader.GetOrdinal("Aadhar_Status")),
+                                Passbook_Status = reader.GetString(reader.GetOrdinal("Passbook_Status")),
+                                Ekyc_status = reader.GetString(reader.GetOrdinal("Ekyc_status")),
+                                Location = reader.GetString(reader.GetOrdinal("Location")),
+                                User_Type = reader.GetInt32(reader.GetOrdinal("User_Type")),
+                                AddressProof = reader.GetString(reader.GetOrdinal("AddressProof")),
+                                UpiidImage = reader.GetString(reader.GetOrdinal("UpiidImage")),
+                                UPIKYCSTATUS = reader.GetInt32(reader.GetOrdinal("UPIKYCSTATUS")),
+                                teslapayoutmode = reader.GetString(reader.GetOrdinal("teslapayoutmode")),
+                                Selfie_image = reader.GetString(reader.GetOrdinal("Selfie_image"))
+                            };
+
+                            return Ok(new ApiResponse<Consumer>(true, "Consumer data fetched successfully", consumer));
+                        }
+                        else
+                        {
+                            return NotFound(new ApiResponse<object>(false, "Consumer not found"));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        return StatusCode(500, new ApiResponse<object>(false, $"Error: {ex.Message}"));
+                    }
+                }
+            }
+        }
+
     }
 }

@@ -1,4 +1,4 @@
-﻿using CoreApi_BL_App.Services;
+using CoreApi_BL_App.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
@@ -37,7 +37,7 @@ namespace CoreApi_BL_App.Controllers
 
                 // Validate company ID
                 if (string.IsNullOrEmpty(req.Comp_ID) || req.Comp_ID.Length <= 4)
-                    return BadRequest(new ApiResponse<object>(false, "Company Id cannot be null or less than 5 characters."));
+                    return BadRequest(new ApiResponse<object>(false, "Company ID cannot be null or less than 5 characters."));
 
                 // Validate M_Consumerid
                 if (!int.TryParse(req.M_Consumerid, out int M_Consumerid))
@@ -60,16 +60,20 @@ namespace CoreApi_BL_App.Controllers
                 if (dt.Rows.Count > 0)
                 {
                     // Map data to response object
-
                     UserkycData.M_Consumerid = M_Consumerid;
                     UserkycData.PanekycStatusString = dt.Rows[0]["panekycStatus"].ToString();
                     UserkycData.AadharkycStatusString = dt.Rows[0]["aadharkycStatus"].ToString();
                     UserkycData.BankekycStatusString = dt.Rows[0]["bankekycStatus"].ToString();
-                    UserkycData.VRKbl_KYC_StatusString = dt.Rows[0]["VRKbl_KYC_status"].ToString();
-                    UserkycData.upikycStatusString = dt.Rows[0]["UPIKYCSTATUS"].ToString();
+                    UserkycData.VRKbl_KYC_StatusString = dt.Rows[0]["VRKbl_KYC_status"].ToString();                  
 
-                    string query1 = $@"SELECT TOP 1 kyc_Details FROM BrandSettings  WHERE Comp_ID = '{req.Comp_ID}' ORDER BY [Comp_ID] DESC";
-                    var dt1 = await _databaseManager.ExecuteDataTableAsync(query1);
+                    // Query to fetch additional KYC details
+                    string query1 = @"SELECT TOP 1 kyc_Details 
+                                      FROM BrandSettings  
+                                      WHERE Comp_ID = @Comp_ID 
+                                      ORDER BY [Comp_ID] DESC";
+
+                    var dt1 = await _databaseManager.ExecuteDataTableAsync(query1, new { req.Comp_ID });
+
                     if (dt1.Rows.Count > 0)
                     {
                         string kyc_DetailsString = dt1.Rows[0]["kyc_Details"].ToString();
@@ -96,22 +100,9 @@ namespace CoreApi_BL_App.Controllers
                 return StatusCode(500, new ApiResponse<object>(false, "An unexpected error occurred."));
             }
         }
-
-        // Helper method to map KYC status
-        private string GetKycStatus(string status)
-        {
-            return status switch
-            {
-                "0" => "Pending",
-                "1" => "Approved",
-                "2" => "Rejected",
-                _ => "Pending"
-            };
-        }
     }
 
-
-public class UserKycStatusClass
+    public class UserKycStatusClass
     {
         public string Comp_ID { get; set; }
         public string Mobile { get; set; }
@@ -129,9 +120,7 @@ public class UserKycStatusClass
         public string AadharekycEnable { get; set; }
         public string UpikyccEnable { get; set; }
         public string BankkyccEnable { get; set; }
-        public string upikycStatusString { get; set; }
-        public int CountNotification { get; set; }
     }
-   
+
 }
 
