@@ -44,21 +44,18 @@ namespace CoreApi_BL_App.Controllers
                     return BadRequest(new ApiResponse<object>(false, "Invalid consumer ID."));
 
                 var UserkycData = new UserkycData();
+                UserkycData.CountNotification = 0;
 
-                // SQL query to get KYC status
-                string query = @"SELECT TOP 1 
-                                    [M_Consumerid],
-                                    CASE WHEN panekycStatus = 'Online' THEN '1' WHEN panekycStatus = 'Failed' THEN '2' ELSE '0' END AS panekycStatus,
-                                    CASE WHEN aadharkycStatus = 'Online' THEN '1' WHEN aadharkycStatus = 'Failed' THEN '2' ELSE '0' END AS aadharkycStatus,
-                                    CASE WHEN bankekycStatus = 'Online' THEN '1' WHEN bankekycStatus = 'Failed' THEN '2' ELSE '0' END AS bankekycStatus,
-                                    CASE WHEN UPIKYCSTATUS = 'Online' THEN '1' WHEN UPIKYCSTATUS = 'Failed' THEN '2' ELSE '0' END AS UPIKYCSTATUS,
-                                    CASE WHEN VRKbl_KYC_status = 1 THEN 'Approved' WHEN VRKbl_KYC_status = 2 THEN 'Rejected' ELSE 'Pending' END AS VRKbl_KYC_status
-                                 FROM M_Consumer 
-                                 WHERE M_Consumerid = @M_Consumerid 
-                                 ORDER BY [M_Consumerid] DESC";
+                string queryNoti = $"select count(*) as CountNoti from Tbl_notificationUser where comp_id='{req.Comp_ID}' and m_consumerid='{M_Consumerid}' and status='0'";
+                var dtNoti = await _databaseManager.ExecuteDataTableAsync(queryNoti);
 
-                var parameters = new { M_Consumerid };
-                var dt = await _databaseManager.ExecuteDataTableAsync(query, parameters);
+                if (dtNoti.Rows.Count > 0)
+                {
+                    UserkycData.CountNotification = Convert.ToInt32(dtNoti.Rows[0]["CountNoti"]);
+                }
+                    // SQL query
+                    string query = $"SELECT TOP 1 [M_Consumerid],case when panekycStatus ='Online' Then '1' when panekycStatus='Failed' then '2' else '0' end panekycStatus,case when aadharkycStatus ='Online' Then '1'  when aadharkycStatus='Failed' then '2'  else '0' end aadharkycStatus,case when bankekycStatus ='Online' Then '1' when bankekycStatus='Failed' then '2' else '0' end bankekycStatus,case when UPIKYCSTATUS = 1 Then '1' when UPIKYCSTATUS= 2 then '2' else '0' end UPIKYCSTATUS,case when VRKbl_KYC_status =1 Then 'Approved' when VRKbl_KYC_status =2 Then 'Rejected'  else 'Pending' end VRKbl_KYC_status FROM M_Consumer WHERE M_Consumerid = '{M_Consumerid}' ORDER BY [M_Consumerid] DESC";
+                var dt = await _databaseManager.ExecuteDataTableAsync(query);
 
                 if (dt.Rows.Count > 0)
                 {
@@ -67,8 +64,7 @@ namespace CoreApi_BL_App.Controllers
                     UserkycData.PanekycStatusString = dt.Rows[0]["panekycStatus"].ToString();
                     UserkycData.AadharkycStatusString = dt.Rows[0]["aadharkycStatus"].ToString();
                     UserkycData.BankekycStatusString = dt.Rows[0]["bankekycStatus"].ToString();
-                    UserkycData.UPI_KYC_StatusString = dt.Rows[0]["UPIKYCSTATUS"].ToString();
-                    UserkycData.VRKbl_KYC_StatusString = dt.Rows[0]["VRKbl_KYC_status"].ToString();
+                    UserkycData.VRKbl_KYC_StatusString = dt.Rows[0]["VRKbl_KYC_status"].ToString();                  
 
                     // Query to fetch additional KYC details
                     string query1 = @"SELECT TOP 1 kyc_Details 
@@ -82,10 +78,15 @@ namespace CoreApi_BL_App.Controllers
                     {
                         string kyc_DetailsString = dt1.Rows[0]["kyc_Details"].ToString();
                         JObject KycData = string.IsNullOrEmpty(kyc_DetailsString) ? new JObject() : JObject.Parse(kyc_DetailsString);
-                        UserkycData.AadharekycEnable = KycData["AadharCard"]?.ToString();
-                        UserkycData.PanekycEnable = KycData["PANCard"]?.ToString();
-                        UserkycData.BankkyccEnable = KycData["AccountDetails"]?.ToString();
-                        UserkycData.UpikyccEnable = KycData["UPI"]?.ToString();
+                        //UserkycData.AadharekycEnable = KycData["AadharCard"]?.ToString();
+                        //UserkycData.PanekycEnable = KycData["PANCard"]?.ToString();
+                        //UserkycData.BankkyccEnable = KycData["AccountDetails"]?.ToString();
+                        //UserkycData.UpikyccEnable = KycData["UPI"]?.ToString();
+                        UserkycData.AadharekycEnable = string.IsNullOrEmpty(KycData["AadharCard"]?.ToString()) ? "No" : KycData["AadharCard"].ToString();
+                        UserkycData.PanekycEnable = string.IsNullOrEmpty(KycData["PANCard"]?.ToString()) ? "No" : KycData["PANCard"].ToString();
+                        UserkycData.BankkyccEnable = string.IsNullOrEmpty(KycData["AccountDetails"]?.ToString()) ? "No" : KycData["AccountDetails"].ToString();
+                        UserkycData.UpikyccEnable = string.IsNullOrEmpty(KycData["UPI"]?.ToString()) ? "No" : KycData["UPI"].ToString();
+
                     }
 
                     return Ok(new ApiResponse<object>(true, "KYC status retrieved successfully.", UserkycData));
@@ -119,20 +120,7 @@ namespace CoreApi_BL_App.Controllers
         public string AadharekycEnable { get; set; }
         public string UpikyccEnable { get; set; }
         public string BankkyccEnable { get; set; }
-        public string UPI_KYC_StatusString { get; set; }
     }
 
-    public class ApiResponse<T>
-    {
-        public bool Success { get; set; }
-        public string Message { get; set; }
-        public T Data { get; set; }
-
-        public ApiResponse(bool success, string message, T data = default)
-        {
-            Success = success;
-            Message = message;
-            Data = data;
-        }
-    }
 }
+

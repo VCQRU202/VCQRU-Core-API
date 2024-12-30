@@ -40,24 +40,36 @@ namespace CoreApi_BL_App.Controllers
 
                         DataTable dt1 = await _databaseManager.ExecuteStoredProcedureDataTableAsync("sp_get_Cunsumer_point_Vendorwise", inputParameters1);                        
                         if (dt1.Rows.Count > 0)
-                        {                            
-                            //DataTable gifttable = await _databaseManager.SelectTableDataAsync("Claim_gift", "gift_id,Gift_name,Gift_value,Gift_desc,Gift_image,status,CompID", "CompID='" + req.Comp_ID + "' and status=1 order by Gift_value asc ");
-                            DataTable gifttable = await _databaseManager.SelectTableDataAsync("Claim_gift AS a LEFT JOIN gifttable_images AS b ON  a.gift_id = b.gift_id ", "a.gift_id,a.Gift_name, a.Gift_value,a.Gift_desc,a.Gift_image,a.status,a.CompID,  CASE WHEN b.gift_images LIKE '%,%' THEN LEFT(b.gift_images, LEN(b.gift_images) - 1) ELSE b.gift_images END AS gift_images", "CompID='" + req.Comp_ID + "' and status=1 order by Gift_value asc ");
-                            if (gifttable.Rows.Count > 0)
-                            {
-                                Dictionary<string, object> inputParameters2 = new Dictionary<string, object>
+                        {
+
+                            Dictionary<string, object> inputParameters2 = new Dictionary<string, object>
                                 {
                                     {"@companyid", req.Comp_ID }
                                 };
-                                DataTable Srvdt = await _databaseManager.ExecuteStoredProcedureDataTableAsync("BL_ServiceID", inputParameters2);
-                                if (Srvdt.Rows.Count > 0)
-                                {
-                                    ServiceId = Srvdt.Rows[0]["Service_ID"].ToString();
-                                }
-                                else
-                                {
-                                    return BadRequest(new ApiResponse<object>(false, "Service not assign, Please contact to administrator."));
-                                }
+                            DataTable Srvdt = await _databaseManager.ExecuteStoredProcedureDataTableAsync("BL_ServiceID", inputParameters2);
+                            if (Srvdt.Rows.Count > 0)
+                            {
+                                ServiceId = Srvdt.Rows[0]["Service_ID"].ToString();
+                            }
+                            else
+                            {
+                                return BadRequest(new ApiResponse<object>(false, "Service not assign, Please contact to administrator."));
+                            }
+                            DataTable gifttable = new DataTable();
+
+                            if (ServiceId == "SRV1001")
+                            {
+                                 gifttable = await _databaseManager.SelectTableDataAsync("Claim_gift AS a LEFT JOIN gifttable_images AS b ON  a.gift_id = b.gift_id ", "a.gift_id,a.Gift_name, a.Gift_value,a.Gift_desc,a.Gift_image,a.status,a.CompID,a.Gift_point,  CASE WHEN b.gift_images LIKE '%,%' THEN LEFT(b.gift_images, LEN(b.gift_images) - 1) ELSE b.gift_images END AS gift_images", "CompID='" + req.Comp_ID + "' and status=1 order by Gift_value asc ");
+
+                            }
+                            else
+                            {
+                                 gifttable = await _databaseManager.SelectTableDataAsync("Claim_gift", "gift_id,Gift_name,Gift_value,Gift_desc,Gift_image,status,CompID,Gift_point", "CompID='" + req.Comp_ID + "' and status=1 order by Gift_value asc ");
+
+                            }
+                            if (gifttable.Rows.Count > 0)
+                            {
+                               
 
                                 gifttable.Columns.Add("btn_flag", typeof(Int32));
                                 gifttable.Columns.Add("gift_message");
@@ -82,16 +94,19 @@ namespace CoreApi_BL_App.Controllers
                                     gifttable.Rows[i]["Gift_value"].ToString();
                                     gifttable.Rows[i]["Gift_desc"].ToString();
                                     gifttable.Rows[i]["Gift_image"] = "https://qa.vcqru.com/" + gifttable.Rows[i]["Gift_image"].ToString().Replace("~/", "");
-                                    if (gifttable.Rows[i]["gift_images"].ToString().Length >5)
+                                    if (ServiceId == "SRV1001")
                                     {
-                                        gifttable.Rows[i]["gift_images"] = "https://qa.vcqru.com/" + gifttable.Rows[i]["gift_images"].ToString().Replace("~/", "");
+                                        if (gifttable.Rows[i]["gift_images"].ToString().Length > 5)
+                                        {
+                                            gifttable.Rows[i]["gift_images"] = "https://qa.vcqru.com/" + gifttable.Rows[i]["gift_images"].ToString().Replace("~/", "");
+                                        }
                                     }
                                         // gifttable.Rows[i]["gift_images"].ToString();
                                     gifttable.Rows[0]["CompID"] = req.Comp_ID;
                                     if (condition_Point <= Avlaible_Point)
                                     {
                                         gifttable.Rows[i]["btn_flag"] = 0;
-                                        if (Avlaible_Point >= Convert.ToInt32(gifttable.Rows[i]["Gift_value"].ToString()))
+                                        if (Avlaible_Point >= Convert.ToInt32(gifttable.Rows[i]["Gift_point"].ToString()))
                                         {
                                             gifttable.Rows[i]["btn_flag"] = 1;
                                             gifttable.Rows[i]["gift_message"] = "";
@@ -174,7 +189,7 @@ namespace CoreApi_BL_App.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new ApiResponse<object>(false, $"Error occurred while validating OTP: {ex.Message}"));
+                return StatusCode(500, new ApiResponse<object>(false, $"Error occurred : {ex.Message}"));
             }
         }
     }

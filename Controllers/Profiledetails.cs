@@ -207,7 +207,7 @@ namespace CoreApi_BL_App.Controllers
                 UPIKYCStatus = row["UPIKYCSTATUS"]?.ToString(),
                 TeslaPayoutMode = row["teslapayoutmode"]?.ToString(),
                 SelfieImage = row["Selfie_image"]?.ToString(),
-                UserRoleType = row["User Role Type"]?.ToString(),
+               // UserRoleType = row["User Role Type"]?.ToString(),
                 Persent = finalPercentage.ToString("0")
             };
             return profileData;

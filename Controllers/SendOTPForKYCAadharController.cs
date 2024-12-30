@@ -106,6 +106,7 @@ namespace CoreApi_BL_App.Controllers
 
                 string Result = _databaseManager.sendotpAadhar(req.AadharNo, "in/identity/okyc/otp/request", "https://live.zoop.one/", "648d7d9a22658f001d0193ac", "W5Q2V99-JFC4D4D-QS0PG29-C6DNJYR");
                 var jOBJ = JObject.Parse(Result);
+                _databaseManager.ExceptionLogs("Aadhar OTP Sent RESPONSE : "+ Result);
                 string NameMatchScore = "0.00";
 
 
@@ -149,7 +150,7 @@ namespace CoreApi_BL_App.Controllers
                 string statusCode = jOBJ["response_code"].ToString();
                 if (statusCode == "101")
                 {
-                    return BadRequest(new ApiResponse<object>(false, "No Record Found!"));
+                    return BadRequest(new ApiResponse<object>(false, "Invalid Aadhar Number"));
                 }
                 if (statusCode == "102")
                 {

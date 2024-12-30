@@ -116,7 +116,7 @@ namespace CoreApi_BL_App.Controllers
                             case "district":
                                 consumer.district = value;
                                 break;
-                            case "state":
+                            case "State":
                                 consumer.state = value;
                                 break;
                             case "country":
